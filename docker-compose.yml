@@ -11,8 +11,15 @@ services:
       - "5432:5432"
     volumes:
       - tg_star_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: tg_star_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tg_star -d tg_star"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

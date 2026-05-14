@@ -5,6 +5,9 @@ FSM_KEY_RECIPIENT = "recipient"
 FSM_KEY_AMOUNT = "amount"
 FSM_KEY_PREMIUM_MONTHS = "premium_months"
 FSM_KEY_GIFT_ID = "gift_id"
+FSM_KEY_PRODUCT = "product"
+FSM_KEY_ORDER_ID = "order_id"
+FSM_KEY_INVOICE_ID = "invoice_id"
 
 UNKNOWN_RECIPIENT = "не указан"
 
@@ -38,6 +41,10 @@ async def save_recipient(state: FSMContext, recipient: str) -> None:
         return
 
     await state.update_data(**{FSM_KEY_RECIPIENT: recipient})
+
+
+async def save_product(state: FSMContext, product: str) -> None:
+    await state.update_data(**{FSM_KEY_PRODUCT: product})
 
 
 async def resolve_self_recipient(state: FSMContext, telegram_username: str | None) -> str:

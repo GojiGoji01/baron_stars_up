@@ -12,12 +12,16 @@ from app.keyboards.ton import build_ton_amount_keyboard
 from app.services.fsm import (
     FSM_KEY_AMOUNT,
     FSM_KEY_GIFT_ID,
+    FSM_KEY_INVOICE_ID,
+    FSM_KEY_ORDER_ID,
     FSM_KEY_PREMIUM_MONTHS,
+    FSM_KEY_PRODUCT,
     UNKNOWN_RECIPIENT,
     clear_current_state_only,
     get_recipient,
     get_saved_recipient,
     resolve_self_recipient,
+    save_product,
     save_recipient,
 )
 from app.services.gifts import get_gift_price
@@ -154,7 +158,7 @@ async def handle_stars_self(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
     recipient = await resolve_self_recipient(state, callback.from_user.username)
-    await state.update_data(product="stars")
+    await save_product(state, "stars")
     await save_recipient(state, recipient)
 
     if recipient == UNKNOWN_RECIPIENT:
@@ -178,7 +182,7 @@ async def handle_stars_self(callback: CallbackQuery, state: FSMContext) -> None:
 async def handle_stars_friend(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(StarsOrder.recipient)
-    await state.update_data(product="stars")
+    await save_product(state, "stars")
 
     await _edit_callback_message(
         callback=callback,
@@ -193,7 +197,7 @@ async def handle_stars_manual_recipient(message: Message, state: FSMContext) -> 
     if recipient is None:
         return
 
-    await state.update_data(product="stars")
+    await save_product(state, "stars")
     await save_recipient(state, recipient)
     await clear_current_state_only(state)
     await message.answer(stars_amount_text(recipient), reply_markup=build_stars_amount_keyboard())
@@ -235,7 +239,8 @@ async def handle_stars_amount(callback: CallbackQuery, state: FSMContext) -> Non
         return
 
     amount = int(amount_value)
-    await state.update_data(product="stars", **{FSM_KEY_AMOUNT: amount})
+    await save_product(state, "stars")
+    await state.update_data(**{FSM_KEY_AMOUNT: amount})
     await callback.answer()
     await _edit_callback_message(
         callback=callback,
@@ -261,7 +266,8 @@ async def handle_stars_custom_amount(message: Message, state: FSMContext) -> Non
         return
 
     recipient = await get_saved_recipient(state, message.from_user.username if message.from_user else None)
-    await state.update_data(product="stars", **{FSM_KEY_AMOUNT: amount})
+    await save_product(state, "stars")
+    await state.update_data(**{FSM_KEY_AMOUNT: amount})
     await clear_current_state_only(state)
     await message.answer(
         stars_payment_text(recipient, amount),
@@ -273,7 +279,7 @@ async def handle_stars_custom_amount(message: Message, state: FSMContext) -> Non
 async def handle_premium_start(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await clear_current_state_only(state)
-    await state.update_data(product="premium")
+    await save_product(state, "premium")
 
     await _edit_callback_message(
         callback=callback,
@@ -305,7 +311,8 @@ async def handle_premium_duration_target(callback: CallbackQuery, state: FSMCont
         return
 
     premium_months = int(premium_months_value)
-    await state.update_data(product="premium", **{FSM_KEY_PREMIUM_MONTHS: premium_months})
+    await save_product(state, "premium")
+    await state.update_data(**{FSM_KEY_PREMIUM_MONTHS: premium_months})
     await callback.answer()
 
     await _edit_callback_message(
@@ -335,7 +342,7 @@ async def handle_premium_self(callback: CallbackQuery, state: FSMContext) -> Non
         )
         return
 
-    await state.update_data(product="premium")
+    await save_product(state, "premium")
     await save_recipient(state, recipient)
     await clear_current_state_only(state)
     await callback.answer()
@@ -350,7 +357,7 @@ async def handle_premium_self(callback: CallbackQuery, state: FSMContext) -> Non
 async def handle_premium_friend(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(PremiumOrder.recipient)
-    await state.update_data(product="premium")
+    await save_product(state, "premium")
 
     await _edit_callback_message(
         callback=callback,
@@ -367,7 +374,7 @@ async def handle_premium_friend_recipient(message: Message, state: FSMContext) -
 
     data = await state.get_data()
     premium_months = int(data.get(FSM_KEY_PREMIUM_MONTHS, 3))
-    await state.update_data(product="premium")
+    await save_product(state, "premium")
     await save_recipient(state, recipient)
     await clear_current_state_only(state)
     await message.answer(
@@ -380,7 +387,7 @@ async def handle_premium_friend_recipient(message: Message, state: FSMContext) -
 async def handle_ton_start(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await clear_current_state_only(state)
-    await state.update_data(product="ton")
+    await save_product(state, "ton")
     await _edit_callback_message(callback, TON_PREVIEW_TEXT, build_ton_amount_keyboard())
 
 
@@ -403,7 +410,8 @@ async def handle_ton_amount(callback: CallbackQuery, state: FSMContext) -> None:
         return
 
     amount = int(amount_value)
-    await state.update_data(product="ton", **{FSM_KEY_AMOUNT: amount})
+    await save_product(state, "ton")
+    await state.update_data(**{FSM_KEY_AMOUNT: amount})
     await callback.answer()
     await _edit_callback_message(
         callback,
@@ -426,7 +434,8 @@ async def handle_ton_custom_amount(message: Message, state: FSMContext) -> None:
         await message.answer(TON_AMOUNT_POSITIVE_TEXT, reply_markup=build_custom_amount_keyboard(BuyCallbacks.TON))
         return
 
-    await state.update_data(product="ton", **{FSM_KEY_AMOUNT: amount})
+    await save_product(state, "ton")
+    await state.update_data(**{FSM_KEY_AMOUNT: amount})
     await clear_current_state_only(state)
     await message.answer(
         ton_payment_text(amount),
@@ -438,7 +447,7 @@ async def handle_ton_custom_amount(message: Message, state: FSMContext) -> None:
 async def handle_gift_start(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await clear_current_state_only(state)
-    await state.update_data(product="gift")
+    await save_product(state, "gift")
     await _edit_callback_message(callback, GIFT_PREVIEW_TEXT, build_gift_recipient_keyboard())
 
 
@@ -446,7 +455,7 @@ async def handle_gift_start(callback: CallbackQuery, state: FSMContext) -> None:
 async def handle_gift_self(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     recipient = await resolve_self_recipient(state, callback.from_user.username)
-    await state.update_data(product="gift")
+    await save_product(state, "gift")
     await save_recipient(state, recipient)
 
     if recipient == UNKNOWN_RECIPIENT:
@@ -465,7 +474,7 @@ async def handle_gift_self(callback: CallbackQuery, state: FSMContext) -> None:
 async def handle_gift_friend(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(GiftOrder.recipient)
-    await state.update_data(product="gift")
+    await save_product(state, "gift")
     await _edit_callback_message(
         callback,
         gift_enter_recipient_text(),
@@ -479,7 +488,7 @@ async def handle_gift_manual_recipient(message: Message, state: FSMContext) -> N
     if recipient is None:
         return
 
-    await state.update_data(product="gift")
+    await save_product(state, "gift")
     await save_recipient(state, recipient)
     await clear_current_state_only(state)
     await message.answer(gift_list_text(recipient), reply_markup=build_gift_list_keyboard())
@@ -491,7 +500,8 @@ async def handle_gift_item(callback: CallbackQuery, state: FSMContext) -> None:
     amount = await get_gift_price(gift_id)
     data = await state.get_data()
     recipient = get_recipient(data, callback.from_user.username)
-    await state.update_data(product="gift", **{FSM_KEY_GIFT_ID: gift_id, FSM_KEY_AMOUNT: amount})
+    await save_product(state, "gift")
+    await state.update_data(**{FSM_KEY_GIFT_ID: gift_id, FSM_KEY_AMOUNT: amount})
     await callback.answer()
     await _edit_callback_message(
         callback,
@@ -504,7 +514,7 @@ async def handle_gift_item(callback: CallbackQuery, state: FSMContext) -> None:
 async def handle_sell_stars_start(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await clear_current_state_only(state)
-    await state.update_data(product="sell_stars")
+    await save_product(state, "sell_stars")
     await _edit_callback_message(callback, SELL_STARS_TEXT, build_sell_stars_keyboard())
 
 
@@ -524,7 +534,8 @@ async def handle_sell_stars_amount(callback: CallbackQuery, state: FSMContext) -
 
     amount = int(amount_value)
     payout = await calculate_sell_price(amount)
-    await state.update_data(product="sell_stars", **{FSM_KEY_AMOUNT: amount})
+    await save_product(state, "sell_stars")
+    await state.update_data(**{FSM_KEY_AMOUNT: amount})
     await callback.answer()
     await _edit_callback_message(
         callback,
@@ -550,7 +561,8 @@ async def handle_sell_stars_custom_amount(message: Message, state: FSMContext) -
         return
 
     payout = await calculate_sell_price(amount)
-    await state.update_data(product="sell_stars", **{FSM_KEY_AMOUNT: amount})
+    await save_product(state, "sell_stars")
+    await state.update_data(**{FSM_KEY_AMOUNT: amount})
     await clear_current_state_only(state)
     await message.answer(
         sell_stars_summary_text(amount, payout),
@@ -561,7 +573,7 @@ async def handle_sell_stars_custom_amount(message: Message, state: FSMContext) -
 @router.callback_query(F.data == PaymentCallbacks.TON)
 async def handle_payment_ton(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    product = data.get("product", "order")
+    product = data.get(FSM_KEY_PRODUCT, "order")
     await callback.answer()
 
     if product == "stars":
@@ -600,7 +612,7 @@ async def handle_payment_ton(callback: CallbackQuery, state: FSMContext) -> None
     )
     await update_order_status(order.order_id, OrderStatus.PENDING_PAYMENT)
     invoice = await ton_payment_provider.create_invoice(order)
-    await state.update_data(order_id=order.order_id, invoice_id=invoice.invoice_id)
+    await state.update_data(**{FSM_KEY_ORDER_ID: order.order_id, FSM_KEY_INVOICE_ID: invoice.invoice_id})
     text = f"{text}\n\n{payment_invoice_text(order, invoice)}"
 
     await _edit_callback_message(callback, text, build_payment_method_keyboard(MenuCallbacks.MAIN))
