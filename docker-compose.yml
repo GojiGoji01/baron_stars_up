@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: tg_star_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tg_star
+      POSTGRES_USER: tg_star
+      POSTGRES_PASSWORD: tg_star_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - tg_star_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tg_star -d tg_star"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tg_star_postgres_data:
