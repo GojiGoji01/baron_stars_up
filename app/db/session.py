@@ -12,6 +12,7 @@ async_session_factory = async_sessionmaker(
     expire_on_commit=False,
     class_=AsyncSession,
 )
+AsyncSessionLocal = async_session_factory
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

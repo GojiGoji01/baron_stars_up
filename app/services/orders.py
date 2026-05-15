@@ -105,6 +105,19 @@ class OrdersService:
     async def update_status(self, order_id: int, status: str) -> DbOrder | None:
         return await self.orders.update_status(order_id=order_id, status=status)
 
+    async def get_all_orders(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
+    ) -> list[DbOrder]:
+        orders = await self.orders.list_orders(
+            limit=limit,
+            offset=offset,
+            status=status,
+        )
+        return list(orders)
+
     async def get_by_user(
         self,
         user_id: int,

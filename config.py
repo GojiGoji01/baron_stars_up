@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     http_retry_attempts: int = Field(default=3, alias="HTTP_RETRY_ATTEMPTS")
     http_retry_delay: float = Field(default=0.5, alias="HTTP_RETRY_DELAY")
 
+    polling_retry_delay: float = Field(default=10.0, alias="POLLING_RETRY_DELAY")
+
     @field_validator("fsm_storage", mode="before")
     @classmethod
     def normalize_fsm_storage(cls, value: Any) -> str:
