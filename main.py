@@ -2,13 +2,10 @@ import asyncio
 import logging
 
 from app.bot import create_bot, create_dispatcher
-from config import settings
+from app.logging import setup_logging
 
 
-logging.basicConfig(
-    level=getattr(logging, settings.log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+setup_logging()
 
 logger = logging.getLogger(__name__)
 

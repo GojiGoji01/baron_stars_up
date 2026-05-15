@@ -1,6 +1,6 @@
-from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, String
+from sqlalchemy import BigInteger, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -9,7 +9,9 @@ from app.db.base import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    username: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    role: Mapped[str] = mapped_column(String(32), default="user")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
+    referral_code: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
+    referred_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    referral_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
+    total_referral_earned: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
