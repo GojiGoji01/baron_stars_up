@@ -66,12 +66,18 @@ def build_support_keyboard() -> InlineKeyboardMarkup:
 def build_info_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
-    builder.button(text="Правила", callback_data=InfoCallbacks.RULES)
-    builder.button(text="Конфиденциальность", callback_data=InfoCallbacks.PRIVACY)
-    builder.button(text="Оферта", callback_data=InfoCallbacks.OFFER)
-    builder.button(text="Франшизы", callback_data=InfoCallbacks.FRANCHISE)
+    builder.button(
+         text="📄Правила",
+        url="https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19",
+    )
+    builder.button(
+        text="🔒Конфиденциальность",
+        url="https://telegra.ph/Politika-konfidencialnosti-04-01-26",
+    )
+    # builder.button(text="Оферта", callback_data=InfoCallbacks.OFFER) 
+    # builder.button(text="Франшизы", callback_data=InfoCallbacks.FRANCHISE)
     builder.button(text="Поддержка", callback_data=MenuCallbacks.SUPPORT)
     add_button(builder, get_main_menu_button())
-    builder.adjust(2, 2, 1, 1)
+    builder.adjust(2, 1, 1)
 
     return builder.as_markup()

@@ -1,0 +1,28 @@
+# Install:
+# cp deploy/systemd/tg_star.service /etc/systemd/system/tg_star.service
+# systemctl daemon-reload
+# systemctl enable tg_star
+# systemctl start tg_star
+# systemctl status tg_star
+#
+# Logs:
+# journalctl -u tg_star -f
+
+[Unit]
+Description=Telegram Stars Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/tg_star
+EnvironmentFile=/opt/tg_star/.env
+ExecStart=/opt/tg_star/.venv/bin/python main.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
