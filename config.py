@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         alias="START_IMAGE_URL",
     )
     support_manager_url: str = Field(default="https://t.me/support", alias="SUPPORT_MANAGER_URL")
+    manager_username: str = Field(default="https://t.me/support", alias="MANAGER_USERNAME")
 
     fsm_storage: str = Field(default="memory", alias="FSM_STORAGE")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")

@@ -17,6 +17,14 @@ from app.utils.callbacks import (
 from config import settings
 
 
+def _get_support_manager_url() -> str:
+    username = settings.manager_username.lstrip("@")
+    if username:
+        return f"https://t.me/{username}"
+
+    return settings.support_manager_url
+
+
 def build_main_menu_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
@@ -56,7 +64,7 @@ def build_back_to_buy_keyboard() -> InlineKeyboardMarkup:
 def build_support_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
-    builder.button(text="🛟 Написать менеджеру", url=settings.support_manager_url)
+    builder.button(text="🛟 Написать менеджеру", url=_get_support_manager_url())
     add_button(builder, get_main_menu_button())
     builder.adjust(1)
 
@@ -76,7 +84,7 @@ def build_info_keyboard() -> InlineKeyboardMarkup:
     )
     # builder.button(text="Оферта", callback_data=InfoCallbacks.OFFER) 
     # builder.button(text="Франшизы", callback_data=InfoCallbacks.FRANCHISE)
-    builder.button(text="Поддержка", callback_data=MenuCallbacks.SUPPORT)
+    builder.button(text="Поддержка", url=_get_support_manager_url())
     add_button(builder, get_main_menu_button())
     builder.adjust(2, 1, 1)
 
