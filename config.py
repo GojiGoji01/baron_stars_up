@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     bot_token: str = Field(alias="BOT_TOKEN")
     admin_id: int = Field(default=0, alias="ADMIN_ID")
     start_image_url: str = Field(
-        default="app/assets/welcome.png",
+        default="app/assets/welcomebaron.png",
         alias="START_IMAGE_URL",
     )
     support_manager_url: str = Field(default="https://t.me/support", alias="SUPPORT_MANAGER_URL")
