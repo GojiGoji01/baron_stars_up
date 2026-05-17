@@ -18,7 +18,9 @@ Type=simple
 User=root
 WorkingDirectory=/opt/tg_star
 EnvironmentFile=/opt/tg_star/.env
-ExecStart=/opt/tg_star/.venv/bin/python main.py
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/tg_star
+ExecStart=/opt/tg_star/.venv/bin/python /opt/tg_star/main.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
