@@ -1,7 +1,7 @@
 START_TEXT = (
     "Добро пожаловать!\n\n"
-    "Здесь можно купить Telegram Stars, Telegram Premium, TON и подарки.\n"
-    "Также доступна продажа звезд.\n\n"
+    "Здесь можно купить Telegram Stars, Telegram Premium и подарки.\n"
+    "\n"
     "Выберите действие в меню ниже."
 )
 

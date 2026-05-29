@@ -8,14 +8,12 @@ class StarsOrder(StatesGroup):
 
 class PremiumOrder(StatesGroup):
     recipient = State()
-
-
-class TonOrder(StatesGroup):
-    custom_amount = State()
+    recipient_tg_id = State()
 
 
 class GiftOrder(StatesGroup):
     recipient = State()
+    recipient_tg_id = State()
 
 
 class SellStarsOrder(StatesGroup):

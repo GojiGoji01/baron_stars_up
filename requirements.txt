@@ -1,4 +1,5 @@
 aiogram==3.3.0
+aiohttp==3.9.5
 python-dotenv==1.0.1
 redis==5.0.1
 SQLAlchemy==2.0.30
@@ -6,3 +7,4 @@ asyncpg==0.29.0
 alembic==1.13.1
 pydantic-settings==2.2.1
 httpx==0.27.0
+fragment-stars-api>=2.0.0

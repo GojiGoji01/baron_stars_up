@@ -5,6 +5,7 @@ from aiogram.exceptions import TelegramNetworkError
 
 from app.bot import create_bot, create_dispatcher
 from app.logging import setup_logging
+from app.webhooks import run_webhook_server
 from config import settings
 
 
@@ -14,11 +15,22 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
+    if settings.bot_mode == "webhook":
+        bot = create_bot()
+        dispatcher = create_dispatcher()
+        logger.info("Bot started in webhook mode")
+        try:
+            await run_webhook_server(bot, dispatcher)
+        finally:
+            await bot.session.close()
+            logger.info("Bot stopped")
+        return
+
     while True:
         bot = create_bot()
         dispatcher = create_dispatcher()
 
-        logger.info("Bot started")
+        logger.info("Bot started in polling mode")
 
         try:
             await dispatcher.start_polling(bot)

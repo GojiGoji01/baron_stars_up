@@ -11,10 +11,12 @@ from app.keyboards.main_menu import (
     build_support_keyboard,
 )
 from app.keyboards.profile import build_profile_keyboard
-from app.keyboards.referral import build_referrals_keyboard
+from app.keyboards.referral import build_referrals_keyboard, build_referrals_list_keyboard
+from app.db.session import session_scope
 from app.services.fsm import clear_current_state_only
 from app.services.profile import get_profile_stats
 from app.services.referral import generate_referral_link
+from app.services.referrals import ReferralsService
 from app.texts.common import (
     BUY_MENU_TEXT,
     FRANCHISE_TEXT,
@@ -28,7 +30,11 @@ from app.texts.common import (
     SUPPORT_TEXT,
 )
 from app.texts.profile import PROFILE_WITHDRAW_STARS_ALERT, build_profile_text
-from app.texts.referral import REFERRAL_LIST_ALERT, REFERRAL_WITHDRAW_ALERT, build_referrals_text
+from app.texts.referral import (
+    REFERRAL_WITHDRAW_ALERT,
+    build_referrals_list_text,
+    build_referrals_text,
+)
 from app.utils.callbacks import InfoCallbacks, MenuCallbacks, ProfileCallbacks, ReferralCallbacks
 
 
@@ -132,10 +138,19 @@ async def handle_profile_withdraw_stars(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == ReferralCallbacks.OPEN)
 async def handle_referrals(callback: CallbackQuery) -> None:
     referral_link = await generate_referral_link(callback.from_user.id)
+    async with session_scope() as session:
+        dashboard = await ReferralsService(session).get_dashboard(callback.from_user.id)
     await callback.answer()
     await _edit_callback_message(
         callback,
-        build_referrals_text(referral_link),
+        build_referrals_text(
+            referral_link,
+            referral_count=dashboard.referral_count,
+            active_referral_count=dashboard.active_referral_count,
+            without_purchase_count=dashboard.without_purchase_count,
+            referral_balance=dashboard.referral_balance,
+            total_referral_earned=dashboard.total_referral_earned,
+        ),
         build_referrals_keyboard(),
     )
 
@@ -147,7 +162,45 @@ async def handle_referrals_withdraw(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == ReferralCallbacks.LIST)
 async def handle_referrals_list(callback: CallbackQuery) -> None:
-    await callback.answer(REFERRAL_LIST_ALERT, show_alert=True)
+    await _show_referrals_page(callback, page=1)
+
+
+@router.callback_query(F.data.startswith(f"{ReferralCallbacks.PAGE_PREFIX}:"))
+async def handle_referrals_page(callback: CallbackQuery) -> None:
+    page_value = callback.data.split(":")[-1] if callback.data else "1"
+    page = int(page_value) if page_value.isdigit() else 1
+    await _show_referrals_page(callback, page=page)
+
+
+async def _show_referrals_page(callback: CallbackQuery, *, page: int) -> None:
+    async with session_scope() as session:
+        referral_page = await ReferralsService(session).get_referral_page(
+            callback.from_user.id,
+            page=page,
+        )
+
+    await callback.answer()
+    await _edit_callback_message(
+        callback,
+        build_referrals_list_text(
+            [
+                (
+                    item.telegram_id,
+                    item.username,
+                    item.earned_amount,
+                    item.is_active,
+                )
+                for item in referral_page.items
+            ],
+            current_page=referral_page.current_page,
+            total_pages=referral_page.total_pages,
+            total_items=referral_page.total_items,
+        ),
+        build_referrals_list_keyboard(
+            current_page=referral_page.current_page,
+            total_pages=referral_page.total_pages,
+        ),
+    )
 
 
 @router.callback_query(F.data == MenuCallbacks.NEWS)

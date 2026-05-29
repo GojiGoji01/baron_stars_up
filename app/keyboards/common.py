@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.utils.callbacks import MenuCallbacks, PaymentCallbacks, StarsCallbacks
@@ -32,7 +32,6 @@ def build_single_button_keyboard(button: KeyboardButtonSpec) -> InlineKeyboardMa
     builder = InlineKeyboardBuilder()
     add_button(builder, button)
     builder.adjust(1)
-
     return builder.as_markup()
 
 
@@ -45,7 +44,23 @@ def build_custom_amount_keyboard(
 def build_payment_method_keyboard(back_callback_data: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
-    builder.button(text="💎 TON", callback_data=PaymentCallbacks.TON)
+    builder.button(text="🏦 СБП", callback_data=PaymentCallbacks.SBP)
+    builder.button(text="💱 Crypto", callback_data=PaymentCallbacks.CRYPTO)
+    add_button(builder, get_back_button(back_callback_data))
+    builder.adjust(2, 1)
+
+    return builder.as_markup()
+
+
+def build_payment_url_keyboard(
+    payment_url: str,
+    back_callback_data: str = MenuCallbacks.MAIN,
+    check_callback_data: str | None = None,
+) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="💳 Оплатить", url=payment_url))
+    if check_callback_data is not None:
+        builder.button(text="🔄 Проверить оплату", callback_data=check_callback_data)
     add_button(builder, get_back_button(back_callback_data))
     builder.adjust(1)
 

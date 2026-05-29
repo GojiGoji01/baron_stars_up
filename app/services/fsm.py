@@ -2,6 +2,7 @@ from aiogram.fsm.context import FSMContext
 
 
 FSM_KEY_RECIPIENT = "recipient"
+FSM_KEY_RECIPIENT_TG_ID = "recipient_tg_id"
 FSM_KEY_AMOUNT = "amount"
 FSM_KEY_PREMIUM_MONTHS = "premium_months"
 FSM_KEY_GIFT_ID = "gift_id"
@@ -41,6 +42,10 @@ async def save_recipient(state: FSMContext, recipient: str) -> None:
         return
 
     await state.update_data(**{FSM_KEY_RECIPIENT: recipient})
+
+
+async def save_recipient_tg_id(state: FSMContext, recipient_tg_id: int | None) -> None:
+    await state.update_data(**{FSM_KEY_RECIPIENT_TG_ID: recipient_tg_id})
 
 
 async def save_product(state: FSMContext, product: str) -> None:

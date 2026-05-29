@@ -1,9 +1,10 @@
 from collections.abc import Sequence
 from decimal import Decimal
 from enum import StrEnum
+from itertools import count
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.order import Order
@@ -11,11 +12,29 @@ from app.db.models.order import Order
 
 class OrderStatus(StrEnum):
     CREATED = "created"
+    PENDING = "pending"
     PENDING_PAYMENT = "pending_payment"
     PAID = "paid"
+    CANCELED = "canceled"
+    DELIVERY_PENDING = "delivery_pending"
     COMPLETED = "completed"
+    DELIVERY_FAILED = "delivery_failed"
     FAILED = "failed"
     REFUNDED = "refunded"
+
+
+class DeliveryStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+_ORDER_COUNTER = count(1)
+
+
+def generate_order_id() -> str:
+    return f"ORD{next(_ORDER_COUNTER):08d}"
 
 
 class OrdersRepository:
@@ -30,14 +49,40 @@ class OrdersRepository:
         status: str = OrderStatus.CREATED,
         profit_amount: Decimal = Decimal("0.00"),
         referral_profit: Decimal = Decimal("0.00"),
+        order_id: str | None = None,
+        order_type: str | None = None,
+        recipient: str | None = None,
+        recipient_tg_id: int | None = None,
+        gift_id: str | None = None,
+        amount: int | None = None,
+        price_rub: Decimal | None = None,
+        payment_provider: str | None = None,
+        payment_transaction_id: str | None = None,
+        payment_url: str | None = None,
+        delivery_status: str | None = None,
+        delivery_attempts: int = 0,
+        fragment_transaction_id: str | None = None,
     ) -> Order:
         order = Order(
+            order_id=order_id or generate_order_id(),
             user_id=user_id,
+            order_type=order_type,
+            recipient=recipient,
+            recipient_tg_id=recipient_tg_id,
+            gift_id=gift_id,
+            amount=amount,
             amount_rub=amount_rub,
+            price_rub=price_rub or amount_rub,
             cost_price=cost_price,
             profit_amount=profit_amount,
             referral_profit=referral_profit,
+            payment_provider=payment_provider,
+            payment_transaction_id=payment_transaction_id,
+            payment_url=payment_url,
             status=status,
+            delivery_status=delivery_status,
+            delivery_attempts=delivery_attempts,
+            fragment_transaction_id=fragment_transaction_id,
         )
         self.session.add(order)
         await self.session.flush()
@@ -61,6 +106,18 @@ class OrdersRepository:
     async def update_status(self, order_id: int, status: str) -> Order | None:
         return await self.update_order(order_id, status=status)
 
+    async def get_order_by_payment_transaction_id(self, transaction_id: str) -> Order | None:
+        result = await self.session.execute(
+            select(Order).where(Order.payment_transaction_id == transaction_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_order_by_order_id(self, order_id: str) -> Order | None:
+        result = await self.session.execute(
+            select(Order).where(Order.order_id == order_id)
+        )
+        return result.scalar_one_or_none()
+
     async def set_pending_payment(self, order_id: int) -> Order | None:
         return await self.update_status(order_id, OrderStatus.PENDING_PAYMENT)
 
@@ -75,6 +132,15 @@ class OrdersRepository:
 
     async def mark_refunded(self, order_id: int) -> Order | None:
         return await self.update_status(order_id, OrderStatus.REFUNDED)
+
+    async def increment_delivery_attempts(self, order_id: int) -> Order | None:
+        order = await self.get_order_by_id(order_id)
+        if order is None:
+            return None
+
+        order.delivery_attempts += 1
+        await self.session.flush()
+        return order
 
     async def list_orders(
         self,
@@ -103,6 +169,42 @@ class OrdersRepository:
             .offset(offset)
         )
         return result.scalars().all()
+
+    async def get_referral_earnings_by_user_ids(self, user_ids: Sequence[int]) -> dict[int, Decimal]:
+        if not user_ids:
+            return {}
+
+        result = await self.session.execute(
+            select(
+                Order.user_id,
+                func.coalesce(func.sum(Order.referral_profit), 0),
+            )
+            .where(Order.user_id.in_(tuple(user_ids)))
+            .where(Order.status == OrderStatus.COMPLETED)
+            .group_by(Order.user_id)
+        )
+        return {
+            int(user_id): Decimal(str(total))
+            for user_id, total in result.all()
+        }
+
+    async def get_completed_order_counts_by_user_ids(self, user_ids: Sequence[int]) -> dict[int, int]:
+        if not user_ids:
+            return {}
+
+        result = await self.session.execute(
+            select(
+                Order.user_id,
+                func.count(Order.id),
+            )
+            .where(Order.user_id.in_(tuple(user_ids)))
+            .where(Order.status == OrderStatus.COMPLETED)
+            .group_by(Order.user_id)
+        )
+        return {
+            int(user_id): int(total)
+            for user_id, total in result.all()
+        }
 
     async def add(self, order: Order) -> Order:
         self.session.add(order)

@@ -18,7 +18,6 @@ class MenuCallbacks:
 class BuyCallbacks:
     STARS = build_callback("buy", "stars")
     PREMIUM = build_callback("buy", "premium")
-    TON = build_callback("buy", "ton")
     GIFT = build_callback("buy", "gift")
 
 
@@ -38,20 +37,12 @@ class PremiumCallbacks:
     SELF = build_callback("premium", "self")
     FRIEND = build_callback("premium", "friend")
     DURATION_PREFIX = build_callback("premium", "duration")
+    DURATION_BACK = build_callback("premium", "duration", "back")
     TARGET_BACK = build_callback("premium", "target", "back")
 
     @staticmethod
     def duration(months: int) -> str:
         return build_callback("premium", "duration", months)
-
-
-class TonCallbacks:
-    AMOUNT_PREFIX = build_callback("ton", "amount")
-    AMOUNT_CUSTOM = build_callback("ton", "amount", "custom")
-
-    @staticmethod
-    def amount(value: int) -> str:
-        return build_callback("ton", "amount", value)
 
 
 class GiftCallbacks:
@@ -60,7 +51,7 @@ class GiftCallbacks:
     SELECT_PREFIX = build_callback("gift", "select")
 
     @staticmethod
-    def select(gift_id: int) -> str:
+    def select(gift_id: int | str) -> str:
         return build_callback("gift", "select", gift_id)
 
 
@@ -75,7 +66,13 @@ class SellCallbacks:
 
 
 class PaymentCallbacks:
-    TON = build_callback("payment", "ton")
+    SBP = build_callback("payment", "sbp")
+    CRYPTO = build_callback("payment", "crypto")
+    CHECK_PREFIX = build_callback("payment", "check")
+
+    @staticmethod
+    def check(order_id: int | str) -> str:
+        return build_callback("payment", "check", order_id)
 
 
 class InfoCallbacks:
@@ -89,6 +86,11 @@ class ReferralCallbacks:
     OPEN = build_callback("referral", "open")
     WITHDRAW = build_callback("referral", "withdraw")
     LIST = build_callback("referral", "list")
+    PAGE_PREFIX = build_callback("referral", "page")
+
+    @staticmethod
+    def page(value: int) -> str:
+        return build_callback("referral", "page", value)
 
 
 class ProfileCallbacks:
