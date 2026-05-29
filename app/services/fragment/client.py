@@ -49,7 +49,7 @@ class FragmentAPIService:
         api_url: str,
         api_mode: str,
         cookies_base64: str | None,
-        local_storage_base64: str | None,
+        local_storage_base64: str | None = None,
     ) -> None:
         self.wallet_mnemonic_base64 = self._as_base64_seed(wallet_mnemonic)
         self.api_url = api_url

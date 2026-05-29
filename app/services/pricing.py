@@ -96,6 +96,7 @@ async def get_fragment_rates() -> dict[str, float]:
         api_url=settings.fragment_effective_api_url,
         api_mode=settings.fragment_api_mode,
         cookies_base64=settings.fragment_cookies_base64,
+        local_storage_base64=settings.fragment_local_storage_base64,
     )
     rates = await service.get_rates()
     _fragment_rates_cache.rates = rates
