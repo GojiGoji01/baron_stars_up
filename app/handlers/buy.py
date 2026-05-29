@@ -114,6 +114,7 @@ from app.utils.callbacks import (
     SellCallbacks,
     StarsCallbacks,
 )
+from app.utils.telegram import safe_answer_callback
 
 
 router = Router(name="buy")
@@ -615,7 +616,7 @@ async def handle_payment_method(callback: CallbackQuery, state: FSMContext) -> N
     data = await state.get_data()
     product = data.get(FSM_KEY_PRODUCT, "order")
     payment_callback = callback.data or PaymentCallbacks.SBP
-    await callback.answer()
+    await safe_answer_callback(callback)
 
     if product == "stars":
         recipient = get_recipient(data, callback.from_user.username)

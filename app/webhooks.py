@@ -84,7 +84,13 @@ async def handle_telegram_webhook(request: web.Request) -> web.Response:
         logger.exception("telegram_webhook_invalid_payload")
         return web.json_response({"ok": False}, status=400)
 
-    await request.app["dispatcher"].feed_update(request.app["bot"], update)
+    try:
+        await request.app["dispatcher"].feed_update(request.app["bot"], update)
+    except Exception:
+        logger.exception(
+            "telegram_webhook_dispatch_error update_id=%s",
+            payload.get("update_id"),
+        )
     return web.json_response({"ok": True})
 
 

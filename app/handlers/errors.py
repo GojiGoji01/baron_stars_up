@@ -3,6 +3,8 @@ import logging
 from aiogram import Router
 from aiogram.types import ErrorEvent
 
+from app.utils.telegram import safe_answer_callback
+
 
 router = Router(name="errors")
 logger = logging.getLogger(__name__)
@@ -21,7 +23,8 @@ async def handle_error(event: ErrorEvent) -> bool:
     )
 
     if event.update.callback_query:
-        await event.update.callback_query.answer(
+        await safe_answer_callback(
+            event.update.callback_query,
             "Произошла ошибка. Попробуйте еще раз.",
             show_alert=True,
         )
