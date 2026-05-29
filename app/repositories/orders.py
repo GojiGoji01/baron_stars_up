@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from decimal import Decimal
 from enum import StrEnum
-from itertools import count
 from typing import Any
 
 from sqlalchemy import func, select
@@ -28,13 +27,6 @@ class DeliveryStatus(StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
-
-
-_ORDER_COUNTER = count(1)
-
-
-def generate_order_id() -> str:
-    return f"ORD{next(_ORDER_COUNTER):08d}"
 
 
 class OrdersRepository:
@@ -64,7 +56,7 @@ class OrdersRepository:
         fragment_transaction_id: str | None = None,
     ) -> Order:
         order = Order(
-            order_id=order_id or generate_order_id(),
+            order_id=order_id,
             user_id=user_id,
             order_type=order_type,
             recipient=recipient,
@@ -86,6 +78,11 @@ class OrdersRepository:
         )
         self.session.add(order)
         await self.session.flush()
+
+        if not order.order_id:
+            order.order_id = f"ORD{int(order.id):08d}"
+            await self.session.flush()
+
         return order
 
     async def get_order_by_id(self, order_id: int) -> Order | None:
