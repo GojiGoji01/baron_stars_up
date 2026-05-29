@@ -49,11 +49,15 @@ class FragmentAPIService:
         api_url: str,
         api_mode: str,
         cookies_base64: str | None,
+        local_storage_base64: str | None,
     ) -> None:
         self.wallet_mnemonic_base64 = self._as_base64_seed(wallet_mnemonic)
         self.api_url = api_url
         self.api_mode = api_mode
         self.cookies_base64 = self._validated_cookies(cookies_base64) if api_mode == "kyc" else None
+        self.local_storage_base64 = (
+            self._validated_local_storage(local_storage_base64) if api_mode == "kyc" else None
+        )
         self.client = FragmentAPIClient(base_url=api_url) if FRAGMENT_LIBRARY_AVAILABLE else None
 
         if not FRAGMENT_LIBRARY_AVAILABLE:
@@ -61,10 +65,12 @@ class FragmentAPIService:
                 "fragment_sdk_missing repository=%s",
                 "https://github.com/bbbuilt/fragment-stars-api",
             )
-        elif api_mode == "kyc" and self.cookies_base64:
-            logger.info("fragment_api_mode mode=kyc cookies_configured=true")
         elif api_mode == "kyc":
-            logger.warning("fragment_api_mode mode=kyc cookies_configured=false")
+            logger.info(
+                "fragment_api_mode mode=kyc cookies_configured=%s local_storage_configured=%s",
+                bool(self.cookies_base64),
+                bool(self.local_storage_base64),
+            )
         else:
             logger.warning("fragment_api_mode mode=no_kyc")
 
@@ -101,6 +107,25 @@ class FragmentAPIService:
             return cookies_base64
 
         return cookies_base64
+
+    @staticmethod
+    def _validated_local_storage(local_storage_base64: str | None) -> str | None:
+        if not local_storage_base64:
+            return None
+
+        try:
+            decoded = base64.b64decode(local_storage_base64).decode("utf-8")
+            parsed = json.loads(decoded)
+            if not isinstance(parsed, dict):
+                raise ValueError("localStorage JSON must be an object")
+        except Exception as error:
+            logger.warning(
+                "fragment_local_storage_validation_failed error_type=%s",
+                type(error).__name__,
+            )
+            return local_storage_base64
+
+        return local_storage_base64
 
     async def check_health(self) -> dict[str, Any]:
         started = time.monotonic()
@@ -165,6 +190,7 @@ class FragmentAPIService:
                 amount=stars_count,
                 seed=self.wallet_mnemonic_base64,
                 cookies=self.cookies_base64,
+                local_storage=self.local_storage_base64,
                 wait=True,
             )
         except LibraryFragmentAPIError as error:
@@ -201,6 +227,7 @@ class FragmentClient:
             api_url=settings.fragment_effective_api_url,
             api_mode=settings.fragment_api_mode,
             cookies_base64=settings.fragment_cookies_base64,
+            local_storage_base64=settings.fragment_local_storage_base64,
         )
 
     async def buy_stars(

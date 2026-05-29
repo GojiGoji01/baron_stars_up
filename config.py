@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     fragment_wallet_mnemonic: str = Field(default="", alias="FRAGMENT_WALLET_MNEMONIC")
     fragment_api_mode: str = Field(default="kyc", alias="FRAGMENT_API_MODE")
     fragment_cookies_base64: str = Field(default="", alias="FRAGMENT_COOKIES_BASE64")
+    fragment_local_storage_base64: str = Field(default="", alias="FRAGMENT_LOCAL_STORAGE_BASE64")
     fragment_star_base_usd: float = Field(default=0.015, alias="FRAGMENT_STAR_BASE_USD")
     fragment_timeout_seconds: float = Field(default=20.0, alias="FRAGMENT_TIMEOUT_SECONDS")
     fragment_max_delivery_attempts: int = Field(default=3, alias="FRAGMENT_MAX_DELIVERY_ATTEMPTS")
