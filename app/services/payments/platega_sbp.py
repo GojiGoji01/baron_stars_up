@@ -169,7 +169,7 @@ class PlategaSbpPaymentProvider:
     @staticmethod
     def _normalize_status(status: str) -> str:
         normalized = status.lower()
-        if normalized in {"success", "succeeded", "completed", "paid"}:
+        if normalized in {"success", "succeeded", "completed", "paid", "confirmed"}:
             return PaymentStatus.PAID.value
         if normalized in {"cancelled", "canceled"}:
             return PaymentStatus.CANCELED.value
