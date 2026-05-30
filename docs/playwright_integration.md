@@ -8,7 +8,7 @@ logic.
 
 - `app/services/browser.py`
 - persistent Chromium context via `launch_persistent_context()`
-- session reuse across restarts through `./userdata`
+- session reuse across restarts through a single persistent Chromium profile
 - startup/shutdown integration in `main.py`
 
 ## Environment variables
@@ -17,8 +17,9 @@ logic.
 PLAYWRIGHT_ENABLED=true
 PLAYWRIGHT_HEADLESS=true
 PLAYWRIGHT_NO_SANDBOX=true
-PLAYWRIGHT_USERDATA_DIR=./userdata
+PLAYWRIGHT_USERDATA_DIR=/opt/tg_star/userdata
 PLAYWRIGHT_LAUNCH_TIMEOUT_MS=30000
+FRAGMENT_BROWSER_PREFER_USERDATA_PROFILE=true
 ```
 
 For Linux VPS, `PLAYWRIGHT_NO_SANDBOX=true` keeps the required launch arg:
@@ -143,13 +144,36 @@ connect_result = await service.connect_ton_wallet(amount=50)
 print(connect_result)
 ```
 
-The preflight now first syncs `FRAGMENT_COOKIES_BASE64` and
-`FRAGMENT_LOCAL_STORAGE_BASE64` into the persistent Playwright session and only
-then checks Fragment page state.
+When `FRAGMENT_BROWSER_PREFER_USERDATA_PROFILE=true`, production browser flows
+trust the single persistent Playwright profile and skip overlaying
+`FRAGMENT_COOKIES_BASE64` / `FRAGMENT_LOCAL_STORAGE_BASE64` on top of it.
 
 Before the final preflight snapshot, the bot also performs a lightweight
 session warmup: it reloads Fragment up to three times and checks whether the
 wallet-connected state becomes visible to the page runtime.
+
+## Manual warmup
+
+`warmup_fragment.py` is the only manual login entry point. It always uses the
+same persistent profile from `PLAYWRIGHT_USERDATA_DIR`, launches Chromium in
+headed mode, opens Fragment, and waits for ENTER after you finish manual login
+and `Connect TON`.
+
+## Session validation
+
+The project now validates the Fragment session on:
+
+`https://fragment.com/stars/buy?amount=50`
+
+It reports:
+
+- `fragment_session_valid`
+- `fragment_login_required`
+- `fragment_buy_button_available`
+- `browser_mode=warmup|production`
+
+If production validation still fails after an automatic `Connect TON` recovery
+attempt, the Fragment flow returns `SESSION_EXPIRED`.
 
 This collects:
 

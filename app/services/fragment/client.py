@@ -18,11 +18,13 @@ from app.services.fragment.buy_page_probe import FragmentBuyPageProbeService
 from app.services.fragment.browser_debug import FragmentBrowserDebugService
 from app.services.fragment.browser_preflight import FragmentBrowserPreflightService
 from app.services.fragment.connect_ton import FragmentConnectTonService
+from app.services.fragment.session_validator import FragmentSessionValidatorService
 from app.services.fragment.session_store import FragmentSessionStore
 from config import settings
 
 
 logger = logging.getLogger(__name__)
+SESSION_EXPIRED_ERROR = "SESSION_EXPIRED"
 
 try:
     from fragment_api import FragmentAPIClient
@@ -184,6 +186,10 @@ class FragmentAPIService:
             local_storage_base64=self.local_storage_base64,
         ).collect_safe_preflight_info(sync_session=True)
 
+    async def validate_browser_session(self) -> dict[str, Any]:
+        await self.load_persisted_session_state()
+        return await FragmentSessionValidatorService().validate_safe()
+
     async def probe_buy_page(self, *, username: str, amount: int | None = None) -> dict[str, Any]:
         await self.load_persisted_session_state()
         return await FragmentBuyPageProbeService(
@@ -265,7 +271,17 @@ class FragmentAPIService:
 
         preflight_info: dict[str, Any] | None = None
         connect_ton_info: dict[str, Any] | None = None
+        session_validation: dict[str, Any] | None = None
         if settings.playwright_enabled:
+            session_validation = await self.validate_browser_session()
+            logger.info(
+                "fragment_session_validation session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s screenshot_path=%s",
+                session_validation.get("fragment_session_valid"),
+                session_validation.get("fragment_login_required"),
+                session_validation.get("fragment_buy_button_available"),
+                session_validation.get("fragment_browser_mode"),
+                session_validation.get("fragment_session_screenshot_path"),
+            )
             preflight_info = await self.collect_browser_preflight_info()
             logger.info(
                 "fragment_buy_stars_preflight username=%s amount=%s api_mode=%s wallet_session_ready=%s warmup_ok=%s connect_cta_visible=%s connect_ton_visible=%s connect_wallet_visible=%s ton_connect_key_count=%s screenshot_path=%s error=%s",
@@ -293,6 +309,26 @@ class FragmentAPIService:
                     connect_ton_info.get("fragment_connect_screenshot_path"),
                     connect_ton_info.get("fragment_connect_error"),
                 )
+                session_validation = await self.validate_browser_session()
+                logger.info(
+                    "fragment_session_validation_after_recovery session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s screenshot_path=%s",
+                    session_validation.get("fragment_session_valid"),
+                    session_validation.get("fragment_login_required"),
+                    session_validation.get("fragment_buy_button_available"),
+                    session_validation.get("fragment_browser_mode"),
+                    session_validation.get("fragment_session_screenshot_path"),
+                )
+
+            if not (session_validation or {}).get("fragment_session_valid"):
+                logger.error(
+                    "fragment_login_required username=%s amount=%s session_valid=%s connect_cta_visible=%s browser_mode=%s",
+                    username,
+                    stars_count,
+                    (session_validation or {}).get("fragment_session_valid"),
+                    (session_validation or {}).get("fragment_connect_cta_visible"),
+                    (session_validation or {}).get("fragment_browser_mode"),
+                )
+                raise FragmentAPIError(SESSION_EXPIRED_ERROR)
 
         try:
             result = await asyncio.to_thread(

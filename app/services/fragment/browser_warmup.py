@@ -25,12 +25,16 @@ class FragmentBrowserWarmupService:
     async def warmup_session(self) -> dict[str, Any]:
         browser = get_browser_manager()
         page = await browser.new_page()
+        session_service = FragmentBrowserSessionService()
 
         try:
-            session_sync = await FragmentBrowserSessionService().sync_from_config_safe_with_state(
-                cookies_base64=self.cookies_base64,
-                local_storage_base64=self.local_storage_base64,
-            )
+            if session_service.should_sync_from_state():
+                session_sync = await session_service.sync_from_config_safe_with_state(
+                    cookies_base64=self.cookies_base64,
+                    local_storage_base64=self.local_storage_base64,
+                )
+            else:
+                session_sync = session_service.build_skip_sync_result()
             attempts: list[dict[str, Any]] = []
 
             for attempt_index in range(1, 4):

@@ -36,12 +36,16 @@ class FragmentBuyPageProbeService:
         browser = get_browser_manager()
         page = await browser.new_page()
         screenshot_path = self._build_screenshot_path(normalized_username)
+        session_service = FragmentBrowserSessionService()
 
         try:
-            session_sync = await FragmentBrowserSessionService().sync_from_config_safe_with_state(
-                cookies_base64=self.cookies_base64,
-                local_storage_base64=self.local_storage_base64,
-            )
+            if session_service.should_sync_from_state():
+                session_sync = await session_service.sync_from_config_safe_with_state(
+                    cookies_base64=self.cookies_base64,
+                    local_storage_base64=self.local_storage_base64,
+                )
+            else:
+                session_sync = session_service.build_skip_sync_result()
             warmup = await FragmentBrowserWarmupService(
                 cookies_base64=self.cookies_base64,
                 local_storage_base64=self.local_storage_base64,

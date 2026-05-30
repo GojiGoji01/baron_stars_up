@@ -31,13 +31,17 @@ class FragmentBrowserPreflightService:
         screenshot_path = self._build_screenshot_path()
         session_sync_info: dict[str, Any] | None = None
         warmup_info: dict[str, Any] | None = None
+        session_service = FragmentBrowserSessionService()
 
         try:
             if sync_session:
-                session_sync_info = await FragmentBrowserSessionService().sync_from_config_safe_with_state(
-                    cookies_base64=self.cookies_base64,
-                    local_storage_base64=self.local_storage_base64,
-                )
+                if session_service.should_sync_from_state():
+                    session_sync_info = await session_service.sync_from_config_safe_with_state(
+                        cookies_base64=self.cookies_base64,
+                        local_storage_base64=self.local_storage_base64,
+                    )
+                else:
+                    session_sync_info = session_service.build_skip_sync_result()
                 warmup_info = await FragmentBrowserWarmupService(
                     cookies_base64=self.cookies_base64,
                     local_storage_base64=self.local_storage_base64,

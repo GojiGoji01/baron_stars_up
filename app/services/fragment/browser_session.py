@@ -13,12 +13,29 @@ logger = logging.getLogger(__name__)
 
 
 class FragmentBrowserSessionService:
+    def should_sync_from_state(self) -> bool:
+        return not settings.fragment_browser_prefer_userdata_profile
+
+    def build_skip_sync_result(self, reason: str = "prefer_userdata_profile") -> dict[str, Any]:
+        return {
+            "fragment_browser_session_sync_ok": True,
+            "fragment_browser_session_sync_skipped": True,
+            "fragment_browser_session_sync_reason": reason,
+            "fragment_cookie_count": 0,
+            "fragment_local_storage_item_count": 0,
+            "fragment_browser_session_url": settings.fragment_web_base_url,
+        }
+
     async def sync_from_config(
         self,
         *,
         cookies_base64: str | None = None,
         local_storage_base64: str | None = None,
     ) -> dict[str, Any]:
+        if not self.should_sync_from_state():
+            logger.info("fragment_browser_session_sync_skipped reason=prefer_userdata_profile")
+            return self.build_skip_sync_result()
+
         browser = get_browser_manager()
         context = await browser.get_context()
         page = await browser.new_page()
