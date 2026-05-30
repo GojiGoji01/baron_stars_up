@@ -197,6 +197,13 @@ class CheckoutService:
         order = await self.orders_service.get_order_by_id(order_id)
         if order is None:
             raise CheckoutError("Order not found")
+        logger.info(
+            "confirm_payment_started order_id=%s status=%s payment_provider=%s payment_transaction_id=%s",
+            order.id,
+            order.status,
+            order.payment_provider,
+            order.payment_transaction_id,
+        )
 
         if order.status == OrderStatus.COMPLETED.value:
             return PaymentDeliveryResult(
@@ -223,6 +230,13 @@ class CheckoutService:
 
         payment_provider = self._get_payment_provider(order.payment_provider)
         payment_result = await payment_provider.check_payment(order.payment_transaction_id)
+        logger.info(
+            "confirm_payment_provider_result order_id=%s provider=%s payment_status=%s is_paid=%s",
+            order.id,
+            order.payment_provider,
+            payment_result.status,
+            payment_result.is_paid,
+        )
         if not payment_result.is_paid:
             return PaymentDeliveryResult(
                 order=order,
@@ -270,6 +284,13 @@ class CheckoutService:
             )
 
         order = await self.orders_service.orders.increment_delivery_attempts(order.id) or order
+        logger.info(
+            "delivery_started order_id=%s order_type=%s payment_status=%s delivery_attempts=%s",
+            order.id,
+            order.order_type,
+            payment_status,
+            order.delivery_attempts,
+        )
         if order.order_type == "premium":
             order = await self.orders_service.update_order(
                 order.id,
@@ -304,6 +325,15 @@ class CheckoutService:
             )
         else:
             delivery_result = await self.fragment_service.buy_stars(order)
+        logger.info(
+            "delivery_result order_id=%s order_type=%s success=%s retryable=%s transaction_id=%s raw_keys=%s",
+            order.id,
+            order.order_type,
+            delivery_result.is_success,
+            delivery_result.is_retryable,
+            delivery_result.transaction_id,
+            sorted(delivery_result.raw.keys()) if isinstance(delivery_result.raw, dict) else [],
+        )
 
         if delivery_result.is_success:
             order = await self.orders_service.update_order(

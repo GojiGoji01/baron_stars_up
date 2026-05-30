@@ -103,6 +103,10 @@ class Settings(BaseSettings):
         default="./logs/fragment",
         alias="FRAGMENT_BROWSER_SCREENSHOTS_DIR",
     )
+    fragment_browser_prefer_userdata_profile: bool = Field(
+        default=False,
+        alias="FRAGMENT_BROWSER_PREFER_USERDATA_PROFILE",
+    )
     fragment_star_base_usd: float = Field(default=0.015, alias="FRAGMENT_STAR_BASE_USD")
     fragment_timeout_seconds: float = Field(default=20.0, alias="FRAGMENT_TIMEOUT_SECONDS")
     fragment_max_delivery_attempts: int = Field(default=3, alias="FRAGMENT_MAX_DELIVERY_ATTEMPTS")

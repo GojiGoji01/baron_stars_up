@@ -617,6 +617,17 @@ async def handle_payment_method(callback: CallbackQuery, state: FSMContext) -> N
     product = data.get(FSM_KEY_PRODUCT, "order")
     payment_callback = callback.data or PaymentCallbacks.SBP
     await safe_answer_callback(callback)
+    logger.info(
+        "payment_method_selected user_id=%s product=%s payment_callback=%s recipient=%s recipient_tg_id=%s amount=%s premium_months=%s gift_id=%s",
+        callback.from_user.id,
+        product,
+        payment_callback,
+        get_recipient(data, callback.from_user.username),
+        data.get(FSM_KEY_RECIPIENT_TG_ID),
+        data.get(FSM_KEY_AMOUNT),
+        data.get(FSM_KEY_PREMIUM_MONTHS),
+        data.get(FSM_KEY_GIFT_ID),
+    )
 
     if product == "stars":
         recipient = get_recipient(data, callback.from_user.username)
@@ -685,14 +696,36 @@ async def handle_payment_method(callback: CallbackQuery, state: FSMContext) -> N
             price_rub=Decimal(str(price)),
             payment_provider=payment_method,
         )
+        logger.info(
+            "payment_order_created order_id=%s order_type=%s user_id=%s provider=%s amount=%s recipient=%s recipient_tg_id=%s",
+            order.id,
+            order.order_type,
+            order.user_id,
+            payment_method,
+            amount,
+            recipient,
+            data.get(FSM_KEY_RECIPIENT_TG_ID),
+        )
 
         try:
+            logger.info(
+                "payment_invoice_create_started order_id=%s payment_callback=%s provider=%s",
+                order.id,
+                payment_callback,
+                payment_method,
+            )
             invoice = await _create_invoice_for_payment_method(
                 payment_callback=payment_callback,
                 order=order,
                 state_data=data,
             )
         except PaymentProviderError:
+            logger.exception(
+                "payment_invoice_create_failed order_id=%s payment_callback=%s provider=%s",
+                order.id,
+                payment_callback,
+                payment_method,
+            )
             await orders_service.update_status(order.id, OrderStatus.FAILED.value)
             await _edit_callback_message(
                 callback,
@@ -700,6 +733,13 @@ async def handle_payment_method(callback: CallbackQuery, state: FSMContext) -> N
                 build_payment_method_keyboard(MenuCallbacks.MAIN),
             )
             return
+        logger.info(
+            "payment_invoice_created order_id=%s invoice_id=%s transaction_id=%s provider=%s",
+            order.id,
+            invoice.invoice_id,
+            invoice.transaction_id,
+            invoice.provider,
+        )
 
         order = await orders_service.update_order(
             order.id,
@@ -732,6 +772,11 @@ async def handle_payment_check(callback: CallbackQuery) -> None:
     if not order_id_value.isdigit():
         await callback.answer("Некорректный номер заказа.", show_alert=True)
         return
+    logger.info(
+        "payment_check_requested user_id=%s order_id=%s",
+        callback.from_user.id,
+        order_id_value,
+    )
 
     try:
         async with session_scope() as session:
@@ -743,6 +788,13 @@ async def handle_payment_check(callback: CallbackQuery) -> None:
         logger.exception("payment_check_failed order_id=%s", order_id_value)
         await callback.answer("Не удалось проверить оплату. Попробуйте позже.", show_alert=True)
         return
+    logger.info(
+        "payment_check_result order_id=%s payment_status=%s delivery_status=%s user_message=%s",
+        order_id_value,
+        result.payment_status,
+        result.delivery_status,
+        bool(result.user_message),
+    )
 
     if result.payment_status == "paid":
         message = result.user_message or "Оплата подтверждена."
