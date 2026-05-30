@@ -1,31 +1,33 @@
 import asyncio
+
 from playwright.async_api import async_playwright
 
-USERDATA = "/opt/tg_star/userdata"  # или userdata_fragment — ВЫБЕРИ ОДИН
 
-async def main():
-    async with async_playwright() as p:
+USERDATA = "/opt/tg_star/userdata"
 
-        context = await p.chromium.launch_persistent_context(
+
+async def main() -> None:
+    async with async_playwright() as playwright:
+        context = await playwright.chromium.launch_persistent_context(
             user_data_dir=USERDATA,
-            headless=True,
+            headless=False,
             args=[
                 "--start-maximized",
-                "--disable-blink-features=AutomationControlled"
-            ]
+                "--disable-blink-features=AutomationControlled",
+            ],
         )
 
         page = await context.new_page()
-
         await page.goto("https://fragment.com")
 
-        print("\n👉 Сделай login вручную:")
+        print("\nDo login manually:")
         print("1. Telegram login")
         print("2. Connect TON / Tonkeeper")
-        print("3. Дойди до состояния где BUY активен")
+        print("3. Reach state where BUY is active")
 
-        input("\n⛔ Нажми ENTER когда всё готово...")
-
+        input("\nPress ENTER when done...")
         await context.close()
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())
