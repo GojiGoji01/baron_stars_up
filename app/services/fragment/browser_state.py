@@ -25,8 +25,8 @@ async def collect_fragment_page_state(page: Any) -> dict[str, Any]:
     title = await page.title()
 
     body_text_lower = body_text.lower()
-    connect_wallet_visible = await page.locator("text=Connect wallet").count() > 0
-    connect_ton_visible = "connect ton" in body_text_lower
+    connect_wallet_visible = await page.get_by_text("Connect wallet", exact=True).count() > 0
+    connect_ton_visible = await page.get_by_text("Connect TON", exact=True).count() > 0
     connect_cta_visible = connect_wallet_visible or connect_ton_visible or (
         "to view your bids and assets" in body_text_lower
     )

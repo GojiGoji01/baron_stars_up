@@ -136,7 +136,11 @@ async def handle_admin_order_action(callback: CallbackQuery) -> None:
         elif action == "error":
             order = await admin_service.mark_failed(order_id)
         elif action == "refund":
-            order = await admin_service.refund_request(order_id)
+            try:
+                order = await admin_service.refund_request(order_id)
+            except ValueError as error:
+                await callback.answer(str(error), show_alert=True)
+                return
         elif action == "retry":
             try:
                 result = await retry_delivery(session, order_id=order_id)

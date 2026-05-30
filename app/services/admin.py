@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.order import Order
-from app.repositories.orders import OrderStatus, OrdersRepository
+from app.repositories.orders import DeliveryStatus, OrderStatus, OrdersRepository
 from app.services.orders import OrdersService
 
 
@@ -33,4 +33,24 @@ class AdminService:
         return await self.orders.update_status(order_id, OrderStatus.FAILED)
 
     async def refund_request(self, order_id: int) -> Order | None:
-        return await self.orders.update_status(order_id, OrderStatus.REFUNDED)
+        order = await self.orders.get_order_by_id(order_id)
+        if order is None:
+            return None
+
+        paid_like_statuses = {
+            OrderStatus.PAID.value,
+            OrderStatus.DELIVERY_PENDING.value,
+            OrderStatus.DELIVERY_FAILED.value,
+            OrderStatus.COMPLETED.value,
+        }
+        if order.status not in paid_like_statuses:
+            raise ValueError(
+                "Refund is allowed only for paid/completed orders "
+                f"(current status: {order.status})"
+            )
+
+        return await self.orders.update_order(
+            order_id,
+            status=OrderStatus.REFUNDED.value,
+            delivery_status=DeliveryStatus.FAILED.value,
+        )

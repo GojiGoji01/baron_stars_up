@@ -770,7 +770,7 @@ async def handle_payment_method(callback: CallbackQuery, state: FSMContext) -> N
 async def handle_payment_check(callback: CallbackQuery) -> None:
     order_id_value = callback.data.split(":")[-1] if callback.data else ""
     if not order_id_value.isdigit():
-        await callback.answer("Некорректный номер заказа.", show_alert=True)
+        await safe_answer_callback(callback, "Некорректный номер заказа.", show_alert=True)
         return
     logger.info(
         "payment_check_requested user_id=%s order_id=%s",
@@ -782,11 +782,11 @@ async def handle_payment_check(callback: CallbackQuery) -> None:
         async with session_scope() as session:
             result = await confirm_payment_and_deliver(session, order_id=int(order_id_value))
     except CheckoutBlockedError as error:
-        await callback.answer(error.safe_message, show_alert=True)
+        await safe_answer_callback(callback, error.safe_message, show_alert=True)
         return
     except (CheckoutError, PaymentProviderError):
         logger.exception("payment_check_failed order_id=%s", order_id_value)
-        await callback.answer("Не удалось проверить оплату. Попробуйте позже.", show_alert=True)
+        await safe_answer_callback(callback, "Не удалось проверить оплату. Попробуйте позже.", show_alert=True)
         return
     logger.info(
         "payment_check_result order_id=%s payment_status=%s delivery_status=%s user_message=%s",
@@ -798,10 +798,10 @@ async def handle_payment_check(callback: CallbackQuery) -> None:
 
     if result.payment_status == "paid":
         message = result.user_message or "Оплата подтверждена."
-        await callback.answer(message, show_alert=True)
+        await safe_answer_callback(callback, message, show_alert=True)
         return
 
-    await callback.answer("Оплата пока не найдена. Попробуйте немного позже.", show_alert=True)
+    await safe_answer_callback(callback, "Оплата пока не найдена. Попробуйте немного позже.", show_alert=True)
 
 
 def _get_payment_method_name(payment_callback: str) -> str:

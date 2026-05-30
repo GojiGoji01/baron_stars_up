@@ -153,17 +153,20 @@ class FragmentConnectTonService:
 
     async def _collect_connect_button_info(self, page: Any) -> dict[str, Any]:
         candidates = [
-            page.locator("button:has-text('Connect TON')").first,
-            page.locator("[role='button']:has-text('Connect TON')").first,
-            page.locator("text=Connect TON").first,
+            page.get_by_role("button", name="Connect TON", exact=True).first,
+            page.get_by_text("Connect TON", exact=True).first,
+            page.locator("a:has-text('Connect TON')").first,
         ]
         for locator in candidates:
             try:
                 if await locator.count() == 0:
                     continue
+                text = (await locator.text_content() or "").strip()
+                if not text or "disconnect ton" in text.lower():
+                    continue
                 return {
                     "connect_button_found": True,
-                    "connect_button_text": await locator.text_content(),
+                    "connect_button_text": text,
                     "locator": locator,
                 }
             except Exception:
