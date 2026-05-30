@@ -48,6 +48,7 @@ class FragmentSessionValidatorService:
                 "fragment_buy_button_available": buy_button_available,
                 "fragment_session_sync": session_sync,
                 "fragment_browser_mode": "production" if settings.playwright_headless else "warmup",
+                "fragment_profile_path": str(Path(settings.playwright_userdata_dir).resolve()),
                 "fragment_session_screenshot_path": str(screenshot_path),
                 **page_state,
                 **buy_state,
@@ -59,6 +60,7 @@ class FragmentSessionValidatorService:
                 "fragment_login_required": True,
                 "fragment_buy_button_available": False,
                 "fragment_browser_mode": "production" if settings.playwright_headless else "warmup",
+                "fragment_profile_path": str(Path(settings.playwright_userdata_dir).resolve()),
                 "fragment_session_validation_error": str(error),
                 "fragment_session_sync": session_sync,
                 "fragment_session_screenshot_path": str(screenshot_path),
@@ -75,6 +77,7 @@ class FragmentSessionValidatorService:
                 "fragment_login_required": True,
                 "fragment_buy_button_available": False,
                 "fragment_browser_mode": "production" if settings.playwright_headless else "warmup",
+                "fragment_profile_path": str(Path(settings.playwright_userdata_dir).resolve()),
                 "fragment_session_validation_error": str(error),
             }
 

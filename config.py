@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     playwright_enabled: bool = Field(default=True, alias="PLAYWRIGHT_ENABLED")
     playwright_headless: bool = Field(default=True, alias="PLAYWRIGHT_HEADLESS")
     playwright_no_sandbox: bool = Field(default=True, alias="PLAYWRIGHT_NO_SANDBOX")
-    playwright_userdata_dir: str = Field(default="./userdata", alias="PLAYWRIGHT_USERDATA_DIR")
+    playwright_userdata_dir: str = Field(default="/opt/tg_star/userdata", alias="PLAYWRIGHT_USERDATA_DIR")
     playwright_launch_timeout_ms: int = Field(default=30000, alias="PLAYWRIGHT_LAUNCH_TIMEOUT_MS")
 
     platega_api_base_url: str = Field(default="https://app.platega.io", alias="PLATEGA_API_BASE_URL")

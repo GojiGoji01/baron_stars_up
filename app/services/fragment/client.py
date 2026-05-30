@@ -277,11 +277,12 @@ class FragmentAPIService:
         if settings.playwright_enabled:
             session_validation = await self.validate_browser_session()
             logger.info(
-                "fragment_session_validation session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s screenshot_path=%s",
+                "fragment_session_validation session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s profile_path=%s screenshot_path=%s",
                 session_validation.get("fragment_session_valid"),
                 session_validation.get("fragment_login_required"),
                 session_validation.get("fragment_buy_button_available"),
                 session_validation.get("fragment_browser_mode"),
+                session_validation.get("fragment_profile_path"),
                 session_validation.get("fragment_session_screenshot_path"),
             )
             preflight_info = await self.collect_browser_preflight_info()
@@ -315,11 +316,12 @@ class FragmentAPIService:
                 )
                 session_validation = await self.validate_browser_session()
                 logger.info(
-                    "fragment_session_validation_after_recovery session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s screenshot_path=%s",
+                    "fragment_session_validation_after_recovery session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s profile_path=%s screenshot_path=%s",
                     session_validation.get("fragment_session_valid"),
                     session_validation.get("fragment_login_required"),
                     session_validation.get("fragment_buy_button_available"),
                     session_validation.get("fragment_browser_mode"),
+                    session_validation.get("fragment_profile_path"),
                     session_validation.get("fragment_session_screenshot_path"),
                 )
 

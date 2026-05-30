@@ -9,6 +9,7 @@ from app.db.session import session_scope
 from app.services.admin import AdminService
 from app.services.checkout import CheckoutError, retry_delivery
 from app.services.orders import OrdersService
+from app.utils.telegram import safe_answer_callback
 from config import settings
 
 
@@ -29,12 +30,12 @@ def _is_admin(user_id: int) -> bool:
 def _get_order_username(order: Order) -> str:
     username = getattr(order, "username", None)
     if not username:
-        return "не указан"
+        return "not set"
     return f"@{username.lstrip('@')}"
 
 
 def _get_order_item(order: Order) -> str:
-    return str(getattr(order, "item", None) or getattr(order, "order_type", None) or "не указан")
+    return str(getattr(order, "item", None) or getattr(order, "order_type", None) or "not set")
 
 
 def _format_order(order: Order) -> str:
@@ -47,7 +48,7 @@ def _format_order(order: Order) -> str:
         f"User: <code>{order.user_id}</code>\n"
         f"Username: {escape(username)}\n"
         f"Item: {escape(item)}\n"
-        f"Amount: <b>{amount} ₽</b>\n"
+        f"Amount: <b>{amount} RUB</b>\n"
         f"Status: <code>{escape(order.status)}</code>"
     )
 
@@ -57,23 +58,23 @@ def _get_order_keyboard(order_id: int) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="✅ Completed",
+                    text="Completed",
                     callback_data=f"{ADMIN_COMPLETE_PREFIX}{order_id}",
                 ),
                 InlineKeyboardButton(
-                    text="❌ Error",
+                    text="Error",
                     callback_data=f"{ADMIN_ERROR_PREFIX}{order_id}",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="↩️ Refund request",
+                    text="Refund request",
                     callback_data=f"{ADMIN_REFUND_PREFIX}{order_id}",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="🔁 Retry delivery",
+                    text="Retry delivery",
                     callback_data=f"{ADMIN_RETRY_PREFIX}{order_id}",
                 )
             ],
@@ -83,10 +84,10 @@ def _get_order_keyboard(order_id: int) -> InlineKeyboardMarkup:
 
 async def _send_orders(message: Message, orders: list[Order]) -> None:
     if not orders:
-        await message.answer("Admin area\n\nЗаказов пока нет.")
+        await message.answer("Admin area\n\nNo orders yet.")
         return
 
-    await message.answer("Admin area\n\nПоследние заказы:")
+    await message.answer("Admin area\n\nRecent orders:")
     for order in orders:
         await message.answer(
             _format_order(order),
@@ -98,7 +99,7 @@ async def _send_orders(message: Message, orders: list[Order]) -> None:
 @router.message(Command("admin"))
 async def handle_admin(message: Message) -> None:
     if message.from_user is None or not _is_admin(message.from_user.id):
-        await message.answer("Доступ запрещен.")
+        await message.answer("Access denied.")
         return
 
     async with session_scope() as session:
@@ -115,16 +116,16 @@ async def handle_admin(message: Message) -> None:
 @router.callback_query(F.data.startswith(ADMIN_CALLBACK_PREFIX))
 async def handle_admin_order_action(callback: CallbackQuery) -> None:
     if callback.from_user is None or not _is_admin(callback.from_user.id):
-        await callback.answer("Доступ запрещен.", show_alert=True)
+        await safe_answer_callback(callback, "Access denied.", show_alert=True)
         return
 
     if callback.data is None:
-        await callback.answer("Некорректное действие.", show_alert=True)
+        await safe_answer_callback(callback, "Invalid action.", show_alert=True)
         return
 
     action, order_id = _parse_admin_callback(callback.data)
     if action is None or order_id is None:
-        await callback.answer("Некорректное действие.", show_alert=True)
+        await safe_answer_callback(callback, "Invalid action.", show_alert=True)
         return
 
     async with session_scope() as session:
@@ -139,13 +140,13 @@ async def handle_admin_order_action(callback: CallbackQuery) -> None:
             try:
                 order = await admin_service.refund_request(order_id)
             except ValueError as error:
-                await callback.answer(str(error), show_alert=True)
+                await safe_answer_callback(callback, str(error), show_alert=True)
                 return
         elif action == "retry":
             try:
                 result = await retry_delivery(session, order_id=order_id)
             except CheckoutError as error:
-                await callback.answer(str(error), show_alert=True)
+                await safe_answer_callback(callback, str(error), show_alert=True)
                 return
             order = result.order
         else:
@@ -155,15 +156,16 @@ async def handle_admin_order_action(callback: CallbackQuery) -> None:
             await orders_service.update_status(order.id, order.status)
 
     if order is None:
-        await callback.answer("Заказ не найден.", show_alert=True)
+        await safe_answer_callback(callback, "Order not found.", show_alert=True)
         return
 
-    await callback.message.edit_text(
-        _format_order(order),
-        reply_markup=_get_order_keyboard(order.id),
-        parse_mode="HTML",
-    )
-    await callback.answer("Статус обновлен.")
+    if callback.message is not None:
+        await callback.message.edit_text(
+            _format_order(order),
+            reply_markup=_get_order_keyboard(order.id),
+            parse_mode="HTML",
+        )
+    await safe_answer_callback(callback, "Status updated.")
 
 
 def _parse_admin_callback(callback_data: str) -> tuple[str | None, int | None]:
