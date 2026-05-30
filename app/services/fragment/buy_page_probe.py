@@ -54,11 +54,15 @@ class FragmentBuyPageProbeService:
 
                 page_state = await collect_fragment_page_state(page)
                 buy_state = await self._collect_buy_button_state(page)
+                next_step_state = None
+                if buy_state["buy_button_found"] and self._is_package_cta(buy_state["buy_button_text"]):
+                    next_step_state = await self._probe_after_package_cta_click(page)
                 attempt = {
                     "candidate_url": route,
                     "open_ok": True,
                     **page_state,
                     **buy_state,
+                    "next_step_probe": next_step_state,
                 }
                 attempts.append(attempt)
 
@@ -135,6 +139,35 @@ class FragmentBuyPageProbeService:
             "buy_button_disabled": None,
             "buy_button_aria_disabled": None,
         }
+
+    async def _probe_after_package_cta_click(self, page: Any) -> dict[str, Any]:
+        try:
+            cta = page.locator("button:has-text('Buy Stars Package')").first
+            if await cta.count() == 0:
+                cta = page.locator("[role='button']:has-text('Buy Stars Package')").first
+            if await cta.count() == 0:
+                cta = page.locator("text=Buy Stars Package").first
+            if await cta.count() == 0:
+                return {"next_step_open_ok": False, "error": "package_cta_not_found"}
+
+            await cta.click(timeout=settings.fragment_browser_timeout_ms)
+            await page.wait_for_timeout(1500)
+
+            page_state = await collect_fragment_page_state(page)
+            buy_state = await self._collect_buy_button_state(page)
+            return {
+                "next_step_open_ok": True,
+                **page_state,
+                **buy_state,
+            }
+        except Exception as error:
+            return {
+                "next_step_open_ok": False,
+                "error": str(error),
+            }
+
+    def _is_package_cta(self, button_text: str | None) -> bool:
+        return (button_text or "").strip().lower() == "buy stars package"
 
     def _build_candidate_routes(self, username: str, amount: int | None) -> list[str]:
         clean_username = username.lstrip("@")

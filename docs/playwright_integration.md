@@ -142,6 +142,7 @@ The buy page probe additionally reports:
 - `Buy` button text
 - `disabled`
 - `aria-disabled`
+- `next_step_probe` after clicking `Buy Stars Package`, when that CTA is present
 
 Inside Fragment debug/config flow:
 
