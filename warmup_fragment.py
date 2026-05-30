@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -28,6 +29,8 @@ async def main() -> None:
         userdata_dir,
         False,
     )
+    if not os.environ.get("DISPLAY"):
+        logger.warning("fragment_warmup_display_missing DISPLAY is not set; use xvfb-run or VNC")
 
     async with async_playwright() as playwright:
         context = await playwright.chromium.launch_persistent_context(
