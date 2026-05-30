@@ -51,6 +51,17 @@ alembic upgrade head
 
 `main.py` starts Playwright before polling/webhook mode and closes it on
 shutdown. The browser layer is isolated and can be reused by existing services.
+Shutdown is signal-driven and systemd-safe: the service now handles `SIGINT`
+and `SIGTERM`, cancels running tasks, closes all tracked pages, closes the
+persistent browser context and only then stops the Playwright driver.
+
+Recommended systemd settings:
+
+```ini
+KillSignal=SIGINT
+TimeoutStopSec=30
+KillMode=control-group
+```
 
 ## Example usage
 

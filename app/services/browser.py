@@ -32,6 +32,8 @@ class BrowserManager:
         self._playwright: Playwright | None = None
         self._context: BrowserContext | None = None
         self._lock = asyncio.Lock()
+        self._pages: set[Page] = set()
+        self._stopping = False
 
     async def start(self) -> None:
         if not settings.playwright_enabled:
@@ -39,6 +41,9 @@ class BrowserManager:
             return
 
         async with self._lock:
+            if self._stopping:
+                raise BrowserManagerError("Playwright is shutting down")
+
             if self._context is not None:
                 logger.debug("playwright_context_already_started")
                 return
@@ -56,6 +61,7 @@ class BrowserManager:
                 launch_args.append("--no-sandbox")
 
             try:
+                logger.info("playwright_starting")
                 self._playwright = await async_playwright().start()
                 self._context = await self._playwright.chromium.launch_persistent_context(
                     user_data_dir=str(userdata_dir),
@@ -78,19 +84,50 @@ class BrowserManager:
 
     async def stop(self) -> None:
         async with self._lock:
-            if self._context is not None:
-                await self._context.close()
-                self._context = None
+            if self._stopping:
+                logger.debug("playwright_stop_already_in_progress")
+                return
 
-            if self._playwright is not None:
-                await self._playwright.stop()
-                self._playwright = None
+            self._stopping = True
+            logger.info(
+                "playwright_shutdown_started tracked_pages=%s context_started=%s",
+                len(self._pages),
+                self._context is not None,
+            )
+            try:
+                await self._close_tracked_pages()
 
-            logger.info("playwright_context_stopped")
+                if self._context is not None:
+                    try:
+                        await self._context.close()
+                        logger.info("playwright_context_closed")
+                    except Exception:
+                        logger.exception("playwright_context_close_failed")
+                    finally:
+                        self._context = None
+
+                if self._playwright is not None:
+                    try:
+                        await self._playwright.stop()
+                        logger.info("playwright_driver_stopped")
+                    except Exception:
+                        logger.exception("playwright_driver_stop_failed")
+                    finally:
+                        self._playwright = None
+            finally:
+                self._pages.clear()
+                self._stopping = False
+                logger.info("playwright_shutdown_finished")
 
     async def new_page(self) -> Page:
         context = await self.get_context()
-        return await context.new_page()
+        page = await context.new_page()
+        self._register_page(page)
+        logger.info("playwright_page_created tracked_pages=%s", len(self._pages))
+        return page
+
+    async def get_page(self) -> Page:
+        return await self.new_page()
 
     async def get_context(self) -> BrowserContext:
         if not settings.playwright_enabled:
@@ -109,18 +146,42 @@ class BrowserManager:
             "playwright_enabled": settings.playwright_enabled,
             "playwright_available": PLAYWRIGHT_AVAILABLE,
             "playwright_context_started": self._context is not None,
+            "playwright_tracked_pages": len(self._pages),
             "playwright_headless": settings.playwright_headless,
             "playwright_userdata_dir": str(Path(settings.playwright_userdata_dir).resolve()),
             "playwright_no_sandbox": settings.playwright_no_sandbox,
         }
 
     async def _cleanup_failed_start(self) -> None:
+        await self._close_tracked_pages()
         if self._context is not None:
             await self._context.close()
             self._context = None
         if self._playwright is not None:
             await self._playwright.stop()
             self._playwright = None
+
+    def _register_page(self, page: Page) -> None:
+        self._pages.add(page)
+        page.on("close", lambda: self._discard_page(page))
+
+    def _discard_page(self, page: Page) -> None:
+        self._pages.discard(page)
+
+    async def _close_tracked_pages(self) -> None:
+        if not self._pages:
+            return
+
+        pages = list(self._pages)
+        for page in pages:
+            try:
+                if not page.is_closed():
+                    await page.close()
+            except Exception:
+                logger.exception("playwright_page_close_failed")
+            finally:
+                self._pages.discard(page)
+        logger.info("playwright_pages_closed")
 
 
 browser_manager = BrowserManager()
