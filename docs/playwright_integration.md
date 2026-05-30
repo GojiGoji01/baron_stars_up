@@ -41,6 +41,12 @@ Browser binary:
 playwright install chromium
 ```
 
+Database migration for persisted Fragment browser sessions:
+
+```bash
+alembic upgrade head
+```
+
 ## Startup flow
 
 `main.py` starts Playwright before polling/webhook mode and closes it on
@@ -109,6 +115,23 @@ probe = await service.probe_buy_page(username="@durov", amount=50)
 print(probe)
 ```
 
+Fragment Connect TON flow:
+
+```python
+from app.services.fragment.client import FragmentAPIService
+from config import settings
+
+service = FragmentAPIService(
+    wallet_mnemonic=settings.fragment_wallet_mnemonic,
+    api_url=settings.fragment_effective_api_url,
+    api_mode=settings.fragment_api_mode,
+    cookies_base64=settings.fragment_cookies_base64,
+    local_storage_base64=settings.fragment_local_storage_base64,
+)
+connect_result = await service.connect_ton_wallet(amount=50)
+print(connect_result)
+```
+
 The preflight now first syncs `FRAGMENT_COOKIES_BASE64` and
 `FRAGMENT_LOCAL_STORAGE_BASE64` into the persistent Playwright session and only
 then checks Fragment page state.
@@ -144,6 +167,14 @@ The buy page probe additionally reports:
 - `aria-disabled`
 - `next_step_probe` after clicking `Buy Stars Package`, when that CTA is present
 
+The Connect TON flow additionally reports:
+
+- whether `Connect TON` was found and clicked
+- modal visibility
+- wallet option labels found in the modal
+- page state before and after the connect attempt
+- refreshed cookies/localStorage that can be persisted for the next SDK call
+
 Inside Fragment debug/config flow:
 
 ```python
@@ -160,8 +191,12 @@ It includes:
 - Session data is stored in `./userdata`
 - `FRAGMENT_COOKIES_BASE64` and `FRAGMENT_LOCAL_STORAGE_BASE64` are synced into
   the persistent browser context before preflight checks
+- refreshed Fragment session state is also persisted into the project database
+  table `fragment_browser_sessions` via Alembic-managed schema
 - Existing handlers, routers, DB logic, and configs remain untouched
 - This repo still does not implement Fragment UI automation by itself unless
   you explicitly build it on top of `BrowserManager`
 - `buy_stars()` now performs a safe preflight check and logs browser session
   state before calling the external Fragment SDK
+- if Fragment still shows `Connect TON`, `buy_stars()` now attempts an isolated
+  Playwright-based `Connect TON` flow before calling the external SDK

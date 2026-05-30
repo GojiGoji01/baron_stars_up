@@ -74,6 +74,36 @@ class FragmentBrowserSessionService:
                 "fragment_browser_session_sync_error": str(error),
             }
 
+    async def export_session_state(self, page: Any) -> dict[str, Any]:
+        browser = get_browser_manager()
+        context = await browser.get_context()
+        cookies = await context.cookies([settings.fragment_web_base_url])
+        local_storage = await page.evaluate(
+            """
+            () => Object.fromEntries(
+                Array.from({ length: localStorage.length }, (_, i) => {
+                    const key = localStorage.key(i);
+                    return [key, localStorage.getItem(key)];
+                })
+            )
+            """
+        )
+        return {
+            "cookies_base64": self._encode_json_object({"cookies": cookies}),
+            "local_storage_base64": self._encode_json_object(local_storage),
+            "cookie_count": len(cookies),
+            "local_storage_item_count": len(local_storage),
+        }
+
+    async def export_session_state_safe(self, page: Any) -> dict[str, Any]:
+        try:
+            return await self.export_session_state(page)
+        except BrowserManagerError as error:
+            return {
+                "export_ok": False,
+                "error": str(error),
+            }
+
     def _decode_json_object(self, base64_value: str) -> dict[str, Any]:
         raw_value = (base64_value or "").strip()
         if not raw_value:
@@ -84,6 +114,9 @@ class FragmentBrowserSessionService:
         if not isinstance(parsed, dict):
             raise ValueError("Decoded Fragment session payload must be a JSON object")
         return parsed
+
+    def _encode_json_object(self, payload: dict[str, Any]) -> str:
+        return base64.b64encode(json.dumps(payload, ensure_ascii=False).encode("utf-8")).decode("utf-8")
 
     def _build_cookie_entries(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         if not payload:
