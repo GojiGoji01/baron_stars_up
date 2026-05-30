@@ -1,6 +1,8 @@
 from html import escape
+import logging
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
@@ -14,6 +16,7 @@ from config import settings
 
 
 router = Router(name="admin")
+logger = logging.getLogger(__name__)
 
 ADMIN_CALLBACK_PREFIX = "admin:"
 ADMIN_COMPLETE_PREFIX = "admin:complete:"
@@ -160,11 +163,17 @@ async def handle_admin_order_action(callback: CallbackQuery) -> None:
         return
 
     if callback.message is not None:
-        await callback.message.edit_text(
-            _format_order(order),
-            reply_markup=_get_order_keyboard(order.id),
-            parse_mode="HTML",
-        )
+        try:
+            await callback.message.edit_text(
+                _format_order(order),
+                reply_markup=_get_order_keyboard(order.id),
+                parse_mode="HTML",
+            )
+        except TelegramBadRequest as error:
+            if "message is not modified" in str(error).lower():
+                logger.info("admin_order_message_not_modified order_id=%s", order.id)
+            else:
+                raise
     await safe_answer_callback(callback, "Status updated.")
 
 
