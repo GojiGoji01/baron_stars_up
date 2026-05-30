@@ -35,6 +35,7 @@ from app.services.fsm import (
     save_recipient_tg_id,
 )
 from app.services.gifts import get_available_gifts, get_gift_item
+from app.services.fragment.client import FragmentAPIService
 from app.services.orders import OrderStatus, OrdersService
 from app.services.payments.base import PaymentProviderError
 from app.services.payments.crypto import CryptoPaymentProvider
@@ -115,6 +116,7 @@ from app.utils.callbacks import (
     StarsCallbacks,
 )
 from app.utils.telegram import safe_answer_callback
+from config import settings
 
 
 router = Router(name="buy")
@@ -124,6 +126,11 @@ crypto_payment_provider = CryptoPaymentProvider()
 sbp_payment_provider = PlategaSbpPaymentProvider()
 INVOICE_CREATE_RETRY_ATTEMPTS = 3
 INVOICE_CREATE_RETRY_DELAY_SECONDS = 1.0
+FRAGMENT_PRECHECK_UNAVAILABLE_TEXT = (
+    "Сейчас не получается подтвердить готовность Fragment/TON-сессии. "
+    "Оплата временно недоступна, чтобы не списать деньги без доставки. "
+    "Пожалуйста, попробуйте позже."
+)
 
 
 async def _edit_callback_message(
@@ -158,6 +165,50 @@ async def _normalize_recipient_or_warn(
         return None
 
     return recipient
+
+
+async def _ensure_fragment_session_ready_for_payment(*, amount: int) -> bool:
+    service = FragmentAPIService(
+        wallet_mnemonic=settings.fragment_wallet_mnemonic,
+        api_url=settings.fragment_effective_api_url,
+        api_mode=settings.fragment_api_mode,
+        cookies_base64=settings.fragment_cookies_base64,
+        local_storage_base64=settings.fragment_local_storage_base64,
+    )
+    validation = await service.validate_browser_session()
+    logger.info(
+        "payment_preflight_fragment_session session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s profile_path=%s",
+        validation.get("fragment_session_valid"),
+        validation.get("fragment_login_required"),
+        validation.get("fragment_buy_button_available"),
+        validation.get("fragment_browser_mode"),
+        validation.get("fragment_profile_path"),
+    )
+    if bool(validation.get("fragment_session_valid")) and bool(
+        validation.get("fragment_buy_button_available")
+    ):
+        return True
+
+    recovery = await service.connect_ton_wallet(amount=amount)
+    logger.info(
+        "payment_preflight_fragment_recovery connect_ok=%s error=%s screenshot=%s",
+        recovery.get("fragment_connect_ton_ok"),
+        recovery.get("fragment_connect_error"),
+        recovery.get("fragment_connect_screenshot_path"),
+    )
+
+    validation_after = await service.validate_browser_session()
+    logger.info(
+        "payment_preflight_fragment_session_after_recovery session_valid=%s fragment_login_required=%s buy_button_available=%s browser_mode=%s profile_path=%s",
+        validation_after.get("fragment_session_valid"),
+        validation_after.get("fragment_login_required"),
+        validation_after.get("fragment_buy_button_available"),
+        validation_after.get("fragment_browser_mode"),
+        validation_after.get("fragment_profile_path"),
+    )
+    return bool(validation_after.get("fragment_session_valid")) and bool(
+        validation_after.get("fragment_buy_button_available")
+    )
 
 
 @router.callback_query(F.data == BuyCallbacks.STARS)
@@ -632,6 +683,25 @@ async def handle_payment_method(callback: CallbackQuery, state: FSMContext) -> N
     if product == "stars":
         recipient = get_recipient(data, callback.from_user.username)
         amount = int(data.get(FSM_KEY_AMOUNT, 0))
+        try:
+            fragment_ready = await _ensure_fragment_session_ready_for_payment(amount=amount)
+        except Exception:
+            logger.exception(
+                "payment_preflight_fragment_failed user_id=%s amount=%s recipient=%s",
+                callback.from_user.id,
+                amount,
+                recipient,
+            )
+            fragment_ready = False
+
+        if not fragment_ready:
+            await _edit_callback_message(
+                callback,
+                FRAGMENT_PRECHECK_UNAVAILABLE_TEXT,
+                build_payment_method_keyboard(MenuCallbacks.MAIN),
+            )
+            return
+
         price = await calculate_star_price(amount)
         text = payment_stars_text(recipient=recipient, amount=amount)
     elif product == "premium":
