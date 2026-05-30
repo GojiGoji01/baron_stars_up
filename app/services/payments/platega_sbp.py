@@ -171,6 +171,8 @@ class PlategaSbpPaymentProvider:
         normalized = status.lower()
         if normalized in {"success", "succeeded", "completed", "paid", "confirmed"}:
             return PaymentStatus.PAID.value
+        if normalized in {"chargeback", "refunded", "refund"}:
+            return PaymentStatus.REFUNDED.value
         if normalized in {"cancelled", "canceled"}:
             return PaymentStatus.CANCELED.value
         if normalized in {"failed", "error", "declined"}:

@@ -5,11 +5,15 @@ from typing import Any
 from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.types import Update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import session_scope
 from app.repositories.orders import OrderStatus
 from app.services.checkout import CheckoutBlockedError, CheckoutError, confirm_payment_and_deliver
 from app.services.orders import OrdersService
+from app.services.payments.base import PaymentProviderError, PaymentStatus
+from app.services.payments.crypto import CryptoPaymentProvider
+from app.services.payments.platega_sbp import PlategaSbpPaymentProvider
 from config import settings
 
 
@@ -175,22 +179,69 @@ async def _process_payment_webhook(provider: str, payload: dict[str, Any]) -> No
                 await confirm_payment_and_deliver(session, order_id=order.id)
                 return
 
-            if payment_status == "canceled":
-                await orders_service.update_status(order.id, OrderStatus.CANCELED.value)
-                return
-
-            if payment_status == "refunded":
-                await orders_service.update_status(order.id, OrderStatus.REFUNDED.value)
-                return
-
-            if payment_status == "failed":
-                await orders_service.update_status(order.id, OrderStatus.FAILED.value)
+            if payment_status in {"canceled", "refunded", "failed"}:
+                await _recheck_and_apply_non_paid_status(
+                    session=session,
+                    orders_service=orders_service,
+                    order=order,
+                    webhook_status=payment_status,
+                )
     except CheckoutBlockedError as error:
         logger.warning("payment_webhook_blocked provider=%s message=%s", provider, error.safe_message)
     except CheckoutError:
         logger.exception("payment_webhook_checkout_error provider=%s", provider)
+    except PaymentProviderError:
+        logger.exception("payment_webhook_provider_recheck_failed provider=%s", provider)
     except Exception:
         logger.exception("payment_webhook_unhandled_error provider=%s", provider)
+
+
+async def _recheck_and_apply_non_paid_status(
+    *,
+    session: AsyncSession,
+    orders_service: OrdersService,
+    order,
+    webhook_status: str,
+) -> None:
+    if not order.payment_transaction_id:
+        logger.warning(
+            "payment_webhook_non_paid_without_transaction order_id=%s webhook_status=%s",
+            order.id,
+            webhook_status,
+        )
+        return
+
+    provider = _get_payment_provider(order.payment_provider)
+    recheck_result = await provider.check_payment(order.payment_transaction_id)
+    logger.info(
+        "payment_webhook_non_paid_recheck order_id=%s webhook_status=%s provider_status=%s is_paid=%s",
+        order.id,
+        webhook_status,
+        recheck_result.status,
+        recheck_result.is_paid,
+    )
+
+    if recheck_result.is_paid:
+        await confirm_payment_and_deliver(session, order_id=order.id)
+        return
+
+    provider_status = recheck_result.status
+    if webhook_status == "refunded" or provider_status == PaymentStatus.REFUNDED.value:
+        await orders_service.update_status(order.id, OrderStatus.REFUNDED.value)
+        return
+    if webhook_status == "canceled" or provider_status == PaymentStatus.CANCELED.value:
+        await orders_service.update_status(order.id, OrderStatus.CANCELED.value)
+        return
+    if webhook_status == "failed" or provider_status == PaymentStatus.FAILED.value:
+        await orders_service.update_status(order.id, OrderStatus.FAILED.value)
+        return
+
+    logger.info(
+        "payment_webhook_non_paid_recheck_ignored order_id=%s webhook_status=%s provider_status=%s",
+        order.id,
+        webhook_status,
+        provider_status,
+    )
 
 
 async def _find_order_from_payload(
@@ -265,14 +316,24 @@ def _is_valid_cryptobot_secret(request: web.Request) -> bool:
     return request.query.get("secret") == settings.cryptobot_webhook_secret
 
 
+def _get_payment_provider(provider_name: str | None):
+    if provider_name == CryptoPaymentProvider.provider_name:
+        return CryptoPaymentProvider()
+    return PlategaSbpPaymentProvider()
+
+
 def _normalize_payment_status(provider: str, payload: dict[str, Any]) -> str:
     if provider == "cryptobot":
         invoice = _extract_cryptobot_invoice(payload)
         status = str(invoice.get("status", "")).lower()
         if status == "paid":
             return "paid"
+        if status in {"refunded", "refund", "chargeback"}:
+            return "refunded"
         if status in {"deleted", "expired", "canceled", "cancelled"}:
             return "canceled"
+        if status in {"failed", "error"}:
+            return "failed"
         return "pending"
 
     status = str(_extract_first(payload, "status", "paymentStatus") or "").lower()

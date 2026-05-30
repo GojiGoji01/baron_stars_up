@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -38,6 +39,16 @@ class UsersRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_user_by_wallet_address(self, wallet_address: str) -> User | None:
+        normalized_address = wallet_address.strip()
+        if not normalized_address:
+            return None
+
+        result = await self.session.execute(
+            select(User).where(User.wallet_address == normalized_address)
+        )
+        return result.scalar_one_or_none()
+
     async def get_or_create_user(
         self,
         telegram_id: int,
@@ -69,6 +80,59 @@ class UsersRepository:
             if hasattr(user, field):
                 setattr(user, field, value)
 
+        await self.session.flush()
+        return user
+
+    async def bind_wallet(
+        self,
+        *,
+        telegram_id: int,
+        wallet_address: str,
+        wallet_provider: str,
+    ) -> User | None:
+        normalized_address = wallet_address.strip()
+        normalized_provider = wallet_provider.strip().lower()
+        if not normalized_address:
+            raise ValueError("wallet_address is empty")
+        if not normalized_provider:
+            raise ValueError("wallet_provider is empty")
+
+        owner = await self.get_user_by_wallet_address(normalized_address)
+        if owner is not None and owner.telegram_id != telegram_id:
+            raise ValueError("wallet address is already bound to another user")
+
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if user is None:
+            return None
+
+        now = datetime.utcnow()
+        user.wallet_address = normalized_address
+        user.wallet_provider = normalized_provider
+        user.wallet_status = "connected"
+        user.wallet_connected_at = user.wallet_connected_at or now
+        user.wallet_last_verified_at = now
+        await self.session.flush()
+        return user
+
+    async def disconnect_wallet(self, *, telegram_id: int) -> User | None:
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if user is None:
+            return None
+
+        user.wallet_status = "disconnected"
+        user.wallet_address = None
+        user.wallet_provider = None
+        user.wallet_connected_at = None
+        user.wallet_last_verified_at = None
+        await self.session.flush()
+        return user
+
+    async def touch_wallet_verified_at(self, *, telegram_id: int) -> User | None:
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if user is None or not user.wallet_address:
+            return user
+
+        user.wallet_last_verified_at = datetime.utcnow()
         await self.session.flush()
         return user
 

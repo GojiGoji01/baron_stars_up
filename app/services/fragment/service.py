@@ -86,6 +86,7 @@ class FragmentService:
         non_retryable_markers = (
             "recipient_username is empty",
             "fragment_wallet_mnemonic is empty",
+            "session_expired",
             "buy button is disabled",
             "insufficient balance",
             "not enough balance",

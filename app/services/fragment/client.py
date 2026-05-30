@@ -240,7 +240,7 @@ class FragmentAPIService:
         mode_decimal = rates["kyc_decimal"] if self.api_mode == "kyc" else rates["no_kyc_decimal"]
         return round(stars_count * base_usd_per_star * (1 + mode_decimal), 2)
 
-    async def buy_stars(self, recipient_username: str, stars_count: int) -> str:
+    async def buy_stars(self, recipient_username: str, stars_count: int, *, order_id: str | None = None) -> str:
         if not self.client:
             raise FragmentAPIError("Fragment API client is not initialized")
 
@@ -251,7 +251,8 @@ class FragmentAPIService:
             username = f"@{username}"
 
         logger.info(
-            "fragment_buy_stars_started username=%s amount=%s mode=%s has_cookies=%s has_local_storage=%s playwright_context_started=%s",
+            "fragment_buy_stars_started order_id=%s username=%s amount=%s mode=%s has_cookies=%s has_local_storage=%s playwright_context_started=%s",
+            order_id,
             username,
             stars_count,
             self.api_mode,
@@ -262,7 +263,8 @@ class FragmentAPIService:
 
         persisted_state_info = await self.load_persisted_session_state()
         logger.info(
-            "fragment_buy_stars_session_state username=%s persisted_state_loaded=%s persisted_cookies_present=%s persisted_local_storage_present=%s",
+            "fragment_buy_stars_session_state order_id=%s username=%s persisted_state_loaded=%s persisted_cookies_present=%s persisted_local_storage_present=%s",
+            order_id,
             username,
             persisted_state_info["persisted_state_loaded"],
             persisted_state_info["persisted_cookies_present"],
@@ -284,7 +286,8 @@ class FragmentAPIService:
             )
             preflight_info = await self.collect_browser_preflight_info()
             logger.info(
-                "fragment_buy_stars_preflight username=%s amount=%s api_mode=%s wallet_session_ready=%s warmup_ok=%s connect_cta_visible=%s connect_ton_visible=%s connect_wallet_visible=%s ton_connect_key_count=%s screenshot_path=%s error=%s",
+                "fragment_buy_stars_preflight order_id=%s username=%s amount=%s api_mode=%s wallet_session_ready=%s warmup_ok=%s connect_cta_visible=%s connect_ton_visible=%s connect_wallet_visible=%s ton_connect_key_count=%s screenshot_path=%s error=%s",
+                order_id,
                 username,
                 stars_count,
                 self.api_mode,
@@ -300,7 +303,8 @@ class FragmentAPIService:
             if preflight_info.get("fragment_connect_cta_visible"):
                 connect_ton_info = await self.connect_ton_wallet(amount=stars_count)
                 logger.info(
-                    "fragment_buy_stars_connect_ton username=%s amount=%s connect_ok=%s buy_button_disabled_after=%s connect_cta_visible_after=%s screenshot_path=%s error=%s",
+                    "fragment_buy_stars_connect_ton order_id=%s username=%s amount=%s connect_ok=%s buy_button_disabled_after=%s connect_cta_visible_after=%s screenshot_path=%s error=%s",
+                    order_id,
                     username,
                     stars_count,
                     connect_ton_info.get("fragment_connect_ton_ok"),
@@ -321,7 +325,8 @@ class FragmentAPIService:
 
             if not (session_validation or {}).get("fragment_session_valid"):
                 logger.error(
-                    "fragment_login_required username=%s amount=%s session_valid=%s connect_cta_visible=%s browser_mode=%s",
+                    "fragment_login_required order_id=%s username=%s amount=%s session_valid=%s connect_cta_visible=%s browser_mode=%s",
+                    order_id,
                     username,
                     stars_count,
                     (session_validation or {}).get("fragment_session_valid"),
@@ -345,7 +350,8 @@ class FragmentAPIService:
             if "buy button is disabled" in str(error).lower():
                 browser_debug_info = await self.collect_browser_debug_info()
             logger.error(
-                "fragment_buy_stars_library_error username=%s amount=%s api_mode=%s cookies_configured=%s local_storage_configured=%s api_url=%s error=%s preflight=%s connect_ton=%s browser_debug=%s",
+                "fragment_buy_stars_library_error order_id=%s username=%s amount=%s api_mode=%s cookies_configured=%s local_storage_configured=%s api_url=%s error=%s preflight=%s connect_ton=%s browser_debug=%s",
+                order_id,
                 username,
                 stars_count,
                 self.api_mode,
@@ -360,7 +366,8 @@ class FragmentAPIService:
             raise FragmentAPIError(str(error)) from error
         except Exception as error:
             logger.error(
-                "fragment_buy_stars_unhandled_error username=%s amount=%s api_mode=%s cookies_configured=%s local_storage_configured=%s api_url=%s error=%s preflight=%s connect_ton=%s",
+                "fragment_buy_stars_unhandled_error order_id=%s username=%s amount=%s api_mode=%s cookies_configured=%s local_storage_configured=%s api_url=%s error=%s preflight=%s connect_ton=%s",
+                order_id,
                 username,
                 stars_count,
                 self.api_mode,
@@ -376,7 +383,8 @@ class FragmentAPIService:
         success = _value(result, "success")
         if success is False:
             logger.error(
-                "fragment_buy_stars_failed_result username=%s amount=%s result=%s",
+                "fragment_buy_stars_failed_result order_id=%s username=%s amount=%s result=%s",
+                order_id,
                 username,
                 stars_count,
                 result,
@@ -422,6 +430,7 @@ class FragmentClient:
         transaction_id = await self.api_service.buy_stars(
             recipient_username=recipient,
             stars_count=amount,
+            order_id=order_id,
         )
         return FragmentDeliveryResult(
             status=FragmentDeliveryStatus.COMPLETED.value,

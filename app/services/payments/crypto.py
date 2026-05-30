@@ -148,6 +148,8 @@ class CryptoPaymentProvider(BasePaymentProvider):
         normalized = status.lower()
         if normalized == "paid":
             return PaymentStatus.PAID.value
+        if normalized in {"refunded", "refund", "chargeback"}:
+            return PaymentStatus.REFUNDED.value
         if normalized in {"deleted", "expired", "canceled", "cancelled"}:
             return PaymentStatus.CANCELED.value
         if normalized in {"failed", "error"}:

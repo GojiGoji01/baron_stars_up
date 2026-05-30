@@ -96,3 +96,7 @@ class ReferralCallbacks:
 class ProfileCallbacks:
     OPEN = build_callback("profile", "open")
     WITHDRAW_STARS = build_callback("profile", "withdraw", "stars")
+    CONNECT_WALLET = build_callback("profile", "wallet", "connect")
+    CONNECT_WALLET_SUBMIT = build_callback("profile", "wallet", "submit")
+    DISCONNECT_WALLET = build_callback("profile", "wallet", "disconnect")
+    VERIFY_WALLET = build_callback("profile", "wallet", "verify")

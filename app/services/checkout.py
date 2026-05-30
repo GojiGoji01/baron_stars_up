@@ -5,11 +5,13 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.order import Order
+from app.repositories.delivery_attempts import DeliveryAttemptStatus
 from app.repositories.orders import DeliveryStatus, OrderStatus
 from app.services.antifraud import (
     ANTIFRAUD_BLOCKED_MESSAGE,
     AntifraudService,
 )
+from app.services.delivery_attempts import DeliveryAttemptsService
 from app.services.fragment import FragmentDeliveryStatus, FragmentService
 from app.services.gift_delivery import GiftDeliveryService
 from app.services.orders import OrdersService
@@ -35,6 +37,12 @@ FRAGMENT_DELIVERY_PENDING_MESSAGE = "Оплата получена, выдача
 PREMIUM_DELIVERY_PENDING_MESSAGE = "Оплата получена, Premium ожидает обработки."
 GIFT_DELIVERY_FAILED_MESSAGE = (
     "Оплата получена, но не удалось определить подарок для отправки."
+)
+
+
+DELIVERY_VERIFICATION_REQUIRED_MESSAGE = (
+    "Оплата подтверждена, но результат выдачи не удалось подтвердить автоматически. "
+    "Заказ переведен в ручную проверку, повторная автодоставка заблокирована."
 )
 
 
@@ -76,6 +84,7 @@ class CheckoutService:
         self.crypto_payment_provider = crypto_payment_provider or CryptoPaymentProvider()
         self.fragment_service = fragment_service or FragmentService()
         self.gift_delivery_service = GiftDeliveryService()
+        self.delivery_attempts_service = DeliveryAttemptsService(session)
         self.antifraud_service = antifraud_service or AntifraudService()
         self.referrals_service = ReferralsService(session)
 
@@ -254,6 +263,14 @@ class CheckoutService:
         if order is None:
             raise CheckoutError("Order not found")
 
+        if order.order_type == "stars":
+            latest_attempt = await self.delivery_attempts_service.get_latest_for_order(order_id=order.id)
+            if (
+                latest_attempt is not None
+                and latest_attempt.status == DeliveryAttemptStatus.VERIFICATION_REQUIRED.value
+            ):
+                raise CheckoutError("Retry blocked: previous stars delivery requires manual verification")
+
         if order.status == OrderStatus.COMPLETED.value:
             return PaymentDeliveryResult(
                 order=order,
@@ -304,8 +321,20 @@ class CheckoutService:
                 user_message=PREMIUM_DELIVERY_PENDING_MESSAGE,
             )
 
+        provider_name = "telegram_gifts" if order.order_type == "gift" else "fragment"
+        attempt_key = f"{order.order_id or order.id}:{order.delivery_attempts}"
+        delivery_attempt = await self.delivery_attempts_service.start_attempt(
+            order_id=order.id,
+            attempt_key=attempt_key,
+            provider=provider_name,
+        )
+
         if order.order_type == "gift":
             if not order.gift_id:
+                await self.delivery_attempts_service.mark_failed(
+                    attempt_id=delivery_attempt.id,
+                    error_message="gift_id_missing",
+                )
                 order = await self.orders_service.update_order(
                     order.id,
                     status=OrderStatus.DELIVERY_FAILED.value,
@@ -336,6 +365,10 @@ class CheckoutService:
         )
 
         if delivery_result.is_success:
+            await self.delivery_attempts_service.mark_completed(
+                attempt_id=delivery_attempt.id,
+                external_transaction_id=delivery_result.transaction_id,
+            )
             order = await self.orders_service.update_order(
                 order.id,
                 status=OrderStatus.COMPLETED.value,
@@ -350,6 +383,28 @@ class CheckoutService:
             )
 
         if delivery_result.is_retryable:
+            if order.order_type == "stars" and not delivery_result.transaction_id:
+                await self.delivery_attempts_service.mark_verification_required(
+                    attempt_id=delivery_attempt.id,
+                    error_message=str(delivery_result.raw),
+                )
+                order = await self.orders_service.update_order(
+                    order.id,
+                    status=OrderStatus.DELIVERY_FAILED.value,
+                    delivery_status=FragmentDeliveryStatus.FAILED.value,
+                ) or order
+                return PaymentDeliveryResult(
+                    order=order,
+                    payment_status=payment_status,
+                    delivery_status=FragmentDeliveryStatus.FAILED.value,
+                    user_message=DELIVERY_VERIFICATION_REQUIRED_MESSAGE,
+                )
+
+            await self.delivery_attempts_service.mark_verification_required(
+                attempt_id=delivery_attempt.id,
+                external_transaction_id=delivery_result.transaction_id,
+                error_message=str(delivery_result.raw),
+            )
             order = await self.orders_service.update_order(
                 order.id,
                 status=OrderStatus.DELIVERY_PENDING.value,
@@ -363,6 +418,10 @@ class CheckoutService:
                 user_message=FRAGMENT_DELIVERY_PENDING_MESSAGE,
             )
 
+        await self.delivery_attempts_service.mark_failed(
+            attempt_id=delivery_attempt.id,
+            error_message=str(delivery_result.raw),
+        )
         order = await self.orders_service.update_order(
             order.id,
             status=OrderStatus.DELIVERY_FAILED.value,
