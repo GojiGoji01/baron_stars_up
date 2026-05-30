@@ -9,6 +9,7 @@ from app.services.browser import get_browser_manager
 
 
 logger = logging.getLogger(__name__)
+_shutdown_active = False
 
 
 class ShutdownManager:
@@ -51,6 +52,7 @@ class ShutdownManager:
 async def run_service_until_shutdown(service_factory: Callable[[], Awaitable[None]]) -> None:
     shutdown_manager = ShutdownManager()
     shutdown_manager.install()
+    install_loop_exception_handler()
 
     service_task = asyncio.create_task(service_factory(), name="bot-service")
     wait_task = asyncio.create_task(shutdown_manager.wait(), name="shutdown-waiter")
@@ -76,6 +78,8 @@ async def run_service_until_shutdown(service_factory: Callable[[], Awaitable[Non
 
 
 async def safe_shutdown() -> None:
+    global _shutdown_active
+    _shutdown_active = True
     current_task = asyncio.current_task()
     tasks_to_cancel = [
         task
@@ -103,3 +107,26 @@ async def _cancel_task(task: asyncio.Task[object]) -> None:
         await task
     except asyncio.CancelledError:
         pass
+
+
+def install_loop_exception_handler() -> None:
+    loop = asyncio.get_running_loop()
+    default_handler = loop.get_exception_handler()
+
+    def handler(loop: asyncio.AbstractEventLoop, context: dict[str, object]) -> None:
+        exception = context.get("exception")
+        message = str(exception or context.get("message") or "")
+
+        if _shutdown_active and (
+            "Connection closed while reading from the driver" in message
+            or "write EPIPE" in message
+        ):
+            logger.info("playwright_shutdown_noise_suppressed message=%s", message)
+            return
+
+        if default_handler is not None:
+            default_handler(loop, context)
+        else:
+            loop.default_exception_handler(context)
+
+    loop.set_exception_handler(handler)
