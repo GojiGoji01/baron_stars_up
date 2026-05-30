@@ -13,13 +13,23 @@ logger = logging.getLogger(__name__)
 
 
 class FragmentBrowserSessionService:
-    async def sync_from_config(self) -> dict[str, Any]:
+    async def sync_from_config(
+        self,
+        *,
+        cookies_base64: str | None = None,
+        local_storage_base64: str | None = None,
+    ) -> dict[str, Any]:
         browser = get_browser_manager()
         context = await browser.get_context()
         page = await browser.new_page()
 
         try:
-            cookies_payload = self._decode_json_object(settings.fragment_cookies_base64)
+            effective_cookies = cookies_base64 if cookies_base64 is not None else settings.fragment_cookies_base64
+            effective_local_storage = (
+                local_storage_base64 if local_storage_base64 is not None else settings.fragment_local_storage_base64
+            )
+
+            cookies_payload = self._decode_json_object(effective_cookies)
             cookie_entries = self._build_cookie_entries(cookies_payload)
             if cookie_entries:
                 await context.add_cookies(cookie_entries)
@@ -30,7 +40,7 @@ class FragmentBrowserSessionService:
                 timeout=settings.fragment_browser_timeout_ms,
             )
 
-            local_storage_payload = self._decode_json_object(settings.fragment_local_storage_base64)
+            local_storage_payload = self._decode_json_object(effective_local_storage)
             local_storage_items = self._build_storage_items(local_storage_payload)
             if local_storage_items:
                 await page.evaluate(
@@ -68,6 +78,23 @@ class FragmentBrowserSessionService:
     async def sync_from_config_safe(self) -> dict[str, Any]:
         try:
             return await self.sync_from_config()
+        except BrowserManagerError as error:
+            return {
+                "fragment_browser_session_sync_ok": False,
+                "fragment_browser_session_sync_error": str(error),
+            }
+
+    async def sync_from_config_safe_with_state(
+        self,
+        *,
+        cookies_base64: str | None = None,
+        local_storage_base64: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            return await self.sync_from_config(
+                cookies_base64=cookies_base64,
+                local_storage_base64=local_storage_base64,
+            )
         except BrowserManagerError as error:
             return {
                 "fragment_browser_session_sync_ok": False,

@@ -16,6 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 class FragmentBrowserPreflightService:
+    def __init__(
+        self,
+        *,
+        cookies_base64: str | None = None,
+        local_storage_base64: str | None = None,
+    ) -> None:
+        self.cookies_base64 = cookies_base64
+        self.local_storage_base64 = local_storage_base64
+
     async def collect_preflight_info(self, *, sync_session: bool = True) -> dict[str, Any]:
         browser = get_browser_manager()
         page = await browser.new_page()
@@ -25,8 +34,14 @@ class FragmentBrowserPreflightService:
 
         try:
             if sync_session:
-                session_sync_info = await FragmentBrowserSessionService().sync_from_config_safe()
-                warmup_info = await FragmentBrowserWarmupService().warmup_session_safe()
+                session_sync_info = await FragmentBrowserSessionService().sync_from_config_safe_with_state(
+                    cookies_base64=self.cookies_base64,
+                    local_storage_base64=self.local_storage_base64,
+                )
+                warmup_info = await FragmentBrowserWarmupService(
+                    cookies_base64=self.cookies_base64,
+                    local_storage_base64=self.local_storage_base64,
+                ).warmup_session_safe()
 
             await page.goto(
                 settings.fragment_web_base_url,

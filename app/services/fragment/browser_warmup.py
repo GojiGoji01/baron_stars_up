@@ -13,12 +13,24 @@ logger = logging.getLogger(__name__)
 
 
 class FragmentBrowserWarmupService:
+    def __init__(
+        self,
+        *,
+        cookies_base64: str | None = None,
+        local_storage_base64: str | None = None,
+    ) -> None:
+        self.cookies_base64 = cookies_base64
+        self.local_storage_base64 = local_storage_base64
+
     async def warmup_session(self) -> dict[str, Any]:
         browser = get_browser_manager()
         page = await browser.new_page()
 
         try:
-            session_sync = await FragmentBrowserSessionService().sync_from_config_safe()
+            session_sync = await FragmentBrowserSessionService().sync_from_config_safe_with_state(
+                cookies_base64=self.cookies_base64,
+                local_storage_base64=self.local_storage_base64,
+            )
             attempts: list[dict[str, Any]] = []
 
             for attempt_index in range(1, 4):

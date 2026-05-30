@@ -15,6 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 class FragmentConnectTonService:
+    def __init__(
+        self,
+        *,
+        cookies_base64: str | None = None,
+        local_storage_base64: str | None = None,
+    ) -> None:
+        self.cookies_base64 = cookies_base64
+        self.local_storage_base64 = local_storage_base64
+
     async def connect(self, *, amount: int | None = None) -> dict[str, Any]:
         browser = get_browser_manager()
         page = await browser.new_page()
@@ -22,7 +31,10 @@ class FragmentConnectTonService:
         session_service = FragmentBrowserSessionService()
 
         try:
-            sync_info = await session_service.sync_from_config_safe()
+            sync_info = await session_service.sync_from_config_safe_with_state(
+                cookies_base64=self.cookies_base64,
+                local_storage_base64=self.local_storage_base64,
+            )
             await page.goto(
                 self._build_buy_url(amount),
                 wait_until="domcontentloaded",
@@ -48,7 +60,7 @@ class FragmentConnectTonService:
                 modal_state = await self._collect_modal_state(page)
                 connect_action["modal_opened"] = modal_state["modal_visible"]
 
-                preferred_wallet_name = self._extract_preferred_wallet_name(settings.fragment_local_storage_base64)
+                preferred_wallet_name = self._extract_preferred_wallet_name(self.local_storage_base64)
                 if preferred_wallet_name:
                     wallet_clicked = await self._click_wallet_option(page, preferred_wallet_name)
                     connect_action["preferred_wallet_clicked"] = wallet_clicked

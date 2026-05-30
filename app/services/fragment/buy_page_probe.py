@@ -17,6 +17,15 @@ logger = logging.getLogger(__name__)
 
 
 class FragmentBuyPageProbeService:
+    def __init__(
+        self,
+        *,
+        cookies_base64: str | None = None,
+        local_storage_base64: str | None = None,
+    ) -> None:
+        self.cookies_base64 = cookies_base64
+        self.local_storage_base64 = local_storage_base64
+
     async def probe(self, *, username: str, amount: int | None = None) -> dict[str, Any]:
         normalized_username = username.strip()
         if not normalized_username:
@@ -29,8 +38,14 @@ class FragmentBuyPageProbeService:
         screenshot_path = self._build_screenshot_path(normalized_username)
 
         try:
-            session_sync = await FragmentBrowserSessionService().sync_from_config_safe()
-            warmup = await FragmentBrowserWarmupService().warmup_session_safe()
+            session_sync = await FragmentBrowserSessionService().sync_from_config_safe_with_state(
+                cookies_base64=self.cookies_base64,
+                local_storage_base64=self.local_storage_base64,
+            )
+            warmup = await FragmentBrowserWarmupService(
+                cookies_base64=self.cookies_base64,
+                local_storage_base64=self.local_storage_base64,
+            ).warmup_session_safe()
             routes = self._build_candidate_routes(normalized_username, amount)
             attempts: list[dict[str, Any]] = []
 

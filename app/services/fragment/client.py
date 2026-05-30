@@ -179,15 +179,24 @@ class FragmentAPIService:
 
     async def collect_browser_preflight_info(self) -> dict[str, Any]:
         await self.load_persisted_session_state()
-        return await FragmentBrowserPreflightService().collect_safe_preflight_info(sync_session=True)
+        return await FragmentBrowserPreflightService(
+            cookies_base64=self.cookies_base64,
+            local_storage_base64=self.local_storage_base64,
+        ).collect_safe_preflight_info(sync_session=True)
 
     async def probe_buy_page(self, *, username: str, amount: int | None = None) -> dict[str, Any]:
         await self.load_persisted_session_state()
-        return await FragmentBuyPageProbeService().probe_safe(username=username, amount=amount)
+        return await FragmentBuyPageProbeService(
+            cookies_base64=self.cookies_base64,
+            local_storage_base64=self.local_storage_base64,
+        ).probe_safe(username=username, amount=amount)
 
     async def connect_ton_wallet(self, *, amount: int | None = None) -> dict[str, Any]:
         await self.load_persisted_session_state()
-        result = await FragmentConnectTonService().connect_safe(amount=amount)
+        result = await FragmentConnectTonService(
+            cookies_base64=self.cookies_base64,
+            local_storage_base64=self.local_storage_base64,
+        ).connect_safe(amount=amount)
         if result.get("fragment_connect_ton_ok"):
             fresh_cookies = result.get("fragment_connect_cookies_base64")
             fresh_local_storage = result.get("fragment_connect_local_storage_base64")
