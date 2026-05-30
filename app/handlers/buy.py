@@ -127,17 +127,14 @@ sbp_payment_provider = PlategaSbpPaymentProvider()
 INVOICE_CREATE_RETRY_ATTEMPTS = 3
 INVOICE_CREATE_RETRY_DELAY_SECONDS = 1.0
 FRAGMENT_PRECHECK_UNAVAILABLE_TEXT = (
-    "Сейчас не получается подтвердить готовность Fragment/TON-сессии. "
-    "Оплата временно недоступна, чтобы не списать деньги без доставки. "
-    "Пожалуйста, попробуйте позже."
-)
-
-
-# Keep preflight guard, but show a clear user message before payment.
-FRAGMENT_PRECHECK_UNAVAILABLE_TEXT = (
-    "Перед оплатой не удалось подтвердить активную сессию Fragment/TON. "
-    "Оплата временно недоступна, чтобы не списать деньги без доставки. "
-    "Обновите подключение кошелька в Fragment и попробуйте снова."
+    "\u041f\u0435\u0440\u0435\u0434 \u043e\u043f\u043b\u0430\u0442\u043e\u0439 \u043d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c "
+    "\u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c \u0430\u043a\u0442\u0438\u0432\u043d\u0443\u044e "
+    "\u0441\u0435\u0441\u0441\u0438\u044e Fragment/TON. \u041e\u043f\u043b\u0430\u0442\u0430 "
+    "\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430, "
+    "\u0447\u0442\u043e\u0431\u044b \u043d\u0435 \u0441\u043f\u0438\u0441\u0430\u0442\u044c \u0434\u0435\u043d\u044c\u0433\u0438 "
+    "\u0431\u0435\u0437 \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438. \u041e\u0431\u043d\u043e\u0432\u0438\u0442\u0435 "
+    "\u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a\u043e\u0448\u0435\u043b\u044c\u043a\u0430 "
+    "\u0432 Fragment \u0438 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0441\u043d\u043e\u0432\u0430."
 )
 
 
@@ -192,9 +189,7 @@ async def _ensure_fragment_session_ready_for_payment(*, amount: int) -> bool:
         validation.get("fragment_browser_mode"),
         validation.get("fragment_profile_path"),
     )
-    if bool(validation.get("fragment_session_valid")) and bool(
-        validation.get("fragment_buy_button_available")
-    ):
+    if bool(validation.get("fragment_session_valid")):
         return True
 
     recovery = await service.connect_ton_wallet(amount=amount)
@@ -214,9 +209,7 @@ async def _ensure_fragment_session_ready_for_payment(*, amount: int) -> bool:
         validation_after.get("fragment_browser_mode"),
         validation_after.get("fragment_profile_path"),
     )
-    return bool(validation_after.get("fragment_session_valid")) and bool(
-        validation_after.get("fragment_buy_button_available")
-    )
+    return bool(validation_after.get("fragment_session_valid"))
 
 
 @router.callback_query(F.data == BuyCallbacks.STARS)
