@@ -1,33 +1,13 @@
-def _wallet_line(stats: dict) -> str:
-    wallet_address = stats.get("wallet_address")
-    wallet_status = stats.get("wallet_status") or "not_connected"
-    wallet_provider = stats.get("wallet_provider") or "-"
-
-    if not wallet_address:
-        return "Wallet: not connected"
-
-    return f"Wallet: {wallet_address} ({wallet_provider}, {wallet_status})"
-
-
 def build_profile_text(stats: dict) -> str:
     return (
-        "Ваш профиль\n\n"
-        f"Ваш ID: {stats['user_id']}\n"
-        f"{_wallet_line(stats)}\n"
-        f"Реферальный баланс: {stats['referral_balance']} ₽\n"
-        f"Всего куплено звёзд: {stats['stars_bought']} ({stats['stars_bought_rub']} ₽)\n"
-        f"Всего куплено премиумов (мес): {stats['premium_months_bought']} ({stats['premium_bought_rub']} ₽)\n"
-        f"Общий депозит: {stats['total_deposit']} ₽\n"
-        f"Накоплено звезд: {stats['saved_stars']} ({stats['saved_stars_rub']} ₽)"
+        "Р’Р°С€ РїСЂРѕС„РёР»СЊ\n\n"
+        f"Р’Р°С€ ID: {stats['user_id']}\n"
+        f"Р РµС„РµСЂР°Р»СЊРЅС‹Р№ Р±Р°Р»Р°РЅСЃ: {stats['referral_balance']} в‚Ѕ\n"
+        f"Р’СЃРµРіРѕ РєСѓРїР»РµРЅРѕ Р·РІС‘Р·Рґ: {stats['stars_bought']} ({stats['stars_bought_rub']} в‚Ѕ)\n"
+        f"Р’СЃРµРіРѕ РєСѓРїР»РµРЅРѕ РїСЂРµРјРёСѓРјРѕРІ (РјРµСЃ): {stats['premium_months_bought']} ({stats['premium_bought_rub']} в‚Ѕ)\n"
+        f"РћР±С‰РёР№ РґРµРїРѕР·РёС‚: {stats['total_deposit']} в‚Ѕ\n"
+        f"РќР°РєРѕРїР»РµРЅРѕ Р·РІРµР·Рґ: {stats['saved_stars']} ({stats['saved_stars_rub']} в‚Ѕ)"
     )
 
 
-PROFILE_WITHDRAW_STARS_ALERT = "Вывод звезд будет добавлен позже."
-PROFILE_CONNECT_WALLET_PROMPT = (
-    "Отправьте TON-адрес кошелька Tonkeeper (формат EQ... или UQ...)."
-)
-PROFILE_CONNECT_WALLET_SUCCESS = "Кошелек успешно привязан."
-PROFILE_CONNECT_WALLET_INVALID = "Некорректный TON-адрес. Проверьте формат и отправьте снова."
-PROFILE_WALLET_DISCONNECTED = "Кошелек отключен."
-PROFILE_WALLET_NOT_CONNECTED = "Кошелек не подключен."
-PROFILE_WALLET_VERIFY_OK = "Кошелек активен, проверка сохранена."
+PROFILE_WITHDRAW_STARS_ALERT = "Р’С‹РІРѕРґ Р·РІРµР·Рґ Р±СѓРґРµС‚ РґРѕР±Р°РІР»РµРЅ РїРѕР·Р¶Рµ."
