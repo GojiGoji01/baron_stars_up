@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     http_retry_delay: float = Field(default=0.5, alias="HTTP_RETRY_DELAY")
 
     polling_retry_delay: float = Field(default=10.0, alias="POLLING_RETRY_DELAY")
+    playwright_enabled: bool = Field(default=True, alias="PLAYWRIGHT_ENABLED")
+    playwright_headless: bool = Field(default=True, alias="PLAYWRIGHT_HEADLESS")
+    playwright_no_sandbox: bool = Field(default=True, alias="PLAYWRIGHT_NO_SANDBOX")
+    playwright_userdata_dir: str = Field(default="./userdata", alias="PLAYWRIGHT_USERDATA_DIR")
+    playwright_launch_timeout_ms: int = Field(default=30000, alias="PLAYWRIGHT_LAUNCH_TIMEOUT_MS")
 
     platega_api_base_url: str = Field(default="https://app.platega.io", alias="PLATEGA_API_BASE_URL")
     platega_merchant_id: str = Field(default="", alias="PLATEGA_MERCHANT_ID")
@@ -92,6 +97,12 @@ class Settings(BaseSettings):
     fragment_api_mode: str = Field(default="kyc", alias="FRAGMENT_API_MODE")
     fragment_cookies_base64: str = Field(default="", alias="FRAGMENT_COOKIES_BASE64")
     fragment_local_storage_base64: str = Field(default="", alias="FRAGMENT_LOCAL_STORAGE_BASE64")
+    fragment_web_base_url: str = Field(default="https://fragment.com", alias="FRAGMENT_WEB_BASE_URL")
+    fragment_browser_timeout_ms: int = Field(default=20000, alias="FRAGMENT_BROWSER_TIMEOUT_MS")
+    fragment_browser_screenshots_dir: str = Field(
+        default="./logs/fragment",
+        alias="FRAGMENT_BROWSER_SCREENSHOTS_DIR",
+    )
     fragment_star_base_usd: float = Field(default=0.015, alias="FRAGMENT_STAR_BASE_USD")
     fragment_timeout_seconds: float = Field(default=20.0, alias="FRAGMENT_TIMEOUT_SECONDS")
     fragment_max_delivery_attempts: int = Field(default=3, alias="FRAGMENT_MAX_DELIVERY_ATTEMPTS")

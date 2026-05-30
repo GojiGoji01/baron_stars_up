@@ -8,3 +8,4 @@ alembic==1.13.1
 pydantic-settings==2.2.1
 httpx==0.27.0
 fragment-stars-api>=2.0.0
+playwright>=1.54.0

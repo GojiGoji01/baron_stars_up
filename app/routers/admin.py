@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from app.db.models.order import Order
 from app.db.session import session_scope
 from app.services.admin import AdminService
+from app.services.checkout import CheckoutError, retry_delivery
 from app.services.orders import OrdersService
 from config import settings
 
@@ -17,6 +18,7 @@ ADMIN_CALLBACK_PREFIX = "admin:"
 ADMIN_COMPLETE_PREFIX = "admin:complete:"
 ADMIN_ERROR_PREFIX = "admin:error:"
 ADMIN_REFUND_PREFIX = "admin:refund:"
+ADMIN_RETRY_PREFIX = "admin:retry:"
 
 
 def _is_admin(user_id: int) -> bool:
@@ -67,6 +69,12 @@ def _get_order_keyboard(order_id: int) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="↩️ Refund request",
                     callback_data=f"{ADMIN_REFUND_PREFIX}{order_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔁 Retry delivery",
+                    callback_data=f"{ADMIN_RETRY_PREFIX}{order_id}",
                 )
             ],
         ]
@@ -129,6 +137,13 @@ async def handle_admin_order_action(callback: CallbackQuery) -> None:
             order = await admin_service.mark_failed(order_id)
         elif action == "refund":
             order = await admin_service.refund_request(order_id)
+        elif action == "retry":
+            try:
+                result = await retry_delivery(session, order_id=order_id)
+            except CheckoutError as error:
+                await callback.answer(str(error), show_alert=True)
+                return
+            order = result.order
         else:
             order = None
 

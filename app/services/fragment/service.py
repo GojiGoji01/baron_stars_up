@@ -56,17 +56,44 @@ class FragmentService:
                 amount=int(order.amount or 0),
             )
         except FragmentError as error:
+            is_retryable = self._is_retryable_error(error)
             logger.exception(
-                "fragment_delivery_failed order_id=%s error_type=%s",
+                "fragment_delivery_failed order_id=%s error_type=%s retryable=%s",
                 order.id,
                 type(error).__name__,
+                is_retryable,
             )
             return FragmentDeliveryResult(
-                status=FragmentDeliveryStatus.PENDING.value,
+                status=(
+                    FragmentDeliveryStatus.PENDING.value
+                    if is_retryable
+                    else FragmentDeliveryStatus.FAILED.value
+                ),
                 is_success=False,
-                is_retryable=True,
-                raw={"error": type(error).__name__},
+                is_retryable=is_retryable,
+                raw={
+                    "error": type(error).__name__,
+                    "error_message": str(error),
+                },
             )
 
     async def check_fragment_result(self, transaction_id: str) -> FragmentDeliveryResult:
         return await self.client.check_fragment_result(transaction_id)
+
+    @staticmethod
+    def _is_retryable_error(error: FragmentError) -> bool:
+        message = str(error).lower()
+        non_retryable_markers = (
+            "recipient_username is empty",
+            "fragment_wallet_mnemonic is empty",
+            "buy button is disabled",
+            "insufficient balance",
+            "not enough balance",
+            "recipient not found",
+            "user not found",
+            "username is invalid",
+        )
+        if any(marker in message for marker in non_retryable_markers):
+            return False
+
+        return True

@@ -13,6 +13,9 @@ from app.services.fragment.base import (
     FragmentDeliveryStatus,
     FragmentError,
 )
+from app.services.browser import get_browser_manager
+from app.services.fragment.browser_debug import FragmentBrowserDebugService
+from app.services.fragment.browser_preflight import FragmentBrowserPreflightService
 from config import settings
 
 
@@ -143,6 +146,25 @@ class FragmentAPIService:
                 "response_time": round(time.monotonic() - started, 2),
             }
 
+    def get_debug_info(self) -> dict[str, Any]:
+        browser_debug = get_browser_manager().get_debug_info()
+        return {
+            "fragment_api_url_present": bool(self.api_url),
+            "fragment_wallet_mnemonic_present": bool(self.wallet_mnemonic_base64),
+            "fragment_cookies_present": bool(self.cookies_base64),
+            "fragment_local_storage_present": bool(self.local_storage_base64),
+            "fragment_api_mode": self.api_mode,
+            "fragment_sdk_available": FRAGMENT_LIBRARY_AVAILABLE,
+            "playwright_context_started": browser_debug["playwright_context_started"],
+            "playwright_enabled": browser_debug["playwright_enabled"],
+        }
+
+    async def collect_browser_debug_info(self) -> dict[str, Any]:
+        return await FragmentBrowserDebugService().collect_safe_debug_info()
+
+    async def collect_browser_preflight_info(self) -> dict[str, Any]:
+        return await FragmentBrowserPreflightService().collect_safe_preflight_info(sync_session=True)
+
     async def get_rates(self) -> dict[str, float]:
         if not self.client:
             raise FragmentAPIError("Fragment API client is not initialized")
@@ -177,11 +199,30 @@ class FragmentAPIService:
             username = f"@{username}"
 
         logger.info(
-            "fragment_buy_stars_started username=%s amount=%s mode=%s",
+            "fragment_buy_stars_started username=%s amount=%s mode=%s has_cookies=%s has_local_storage=%s playwright_context_started=%s",
             username,
             stars_count,
             self.api_mode,
+            bool(self.cookies_base64),
+            bool(self.local_storage_base64),
+            get_browser_manager().get_debug_info()["playwright_context_started"],
         )
+
+        preflight_info: dict[str, Any] | None = None
+        if settings.playwright_enabled:
+            preflight_info = await self.collect_browser_preflight_info()
+            logger.info(
+                "fragment_buy_stars_preflight username=%s amount=%s api_mode=%s wallet_session_ready=%s warmup_ok=%s connect_wallet_visible=%s ton_connect_key_count=%s screenshot_path=%s error=%s",
+                username,
+                stars_count,
+                self.api_mode,
+                preflight_info.get("fragment_wallet_session_ready"),
+                (preflight_info.get("fragment_warmup") or {}).get("fragment_warmup_ok"),
+                preflight_info.get("fragment_connect_wallet_visible"),
+                preflight_info.get("fragment_ton_connect_key_count"),
+                preflight_info.get("fragment_screenshot_path"),
+                preflight_info.get("fragment_browser_preflight_error"),
+            )
 
         try:
             result = await asyncio.to_thread(
@@ -194,12 +235,44 @@ class FragmentAPIService:
                 wait=True,
             )
         except LibraryFragmentAPIError as error:
+            browser_debug_info = None
+            if "buy button is disabled" in str(error).lower():
+                browser_debug_info = await self.collect_browser_debug_info()
+            logger.error(
+                "fragment_buy_stars_library_error username=%s amount=%s api_mode=%s cookies_configured=%s local_storage_configured=%s api_url=%s error=%s preflight=%s browser_debug=%s",
+                username,
+                stars_count,
+                self.api_mode,
+                bool(self.cookies_base64),
+                bool(self.local_storage_base64),
+                self.api_url,
+                str(error),
+                preflight_info,
+                browser_debug_info,
+            )
             raise FragmentAPIError(str(error)) from error
         except Exception as error:
+            logger.error(
+                "fragment_buy_stars_unhandled_error username=%s amount=%s api_mode=%s cookies_configured=%s local_storage_configured=%s api_url=%s error=%s preflight=%s",
+                username,
+                stars_count,
+                self.api_mode,
+                bool(self.cookies_base64),
+                bool(self.local_storage_base64),
+                self.api_url,
+                str(error),
+                preflight_info,
+            )
             raise FragmentAPIError(f"Fragment API error: {error}") from error
 
         success = _value(result, "success")
         if success is False:
+            logger.error(
+                "fragment_buy_stars_failed_result username=%s amount=%s result=%s",
+                username,
+                stars_count,
+                result,
+            )
             raise FragmentAPIError(_value(result, "error", "Fragment API returned success=false"))
 
         transaction_id = (
