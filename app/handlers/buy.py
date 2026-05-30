@@ -133,6 +133,14 @@ FRAGMENT_PRECHECK_UNAVAILABLE_TEXT = (
 )
 
 
+# Keep preflight guard, but show a clear user message before payment.
+FRAGMENT_PRECHECK_UNAVAILABLE_TEXT = (
+    "Перед оплатой не удалось подтвердить активную сессию Fragment/TON. "
+    "Оплата временно недоступна, чтобы не списать деньги без доставки. "
+    "Обновите подключение кошелька в Fragment и попробуйте снова."
+)
+
+
 async def _edit_callback_message(
     callback: CallbackQuery,
     text: str,

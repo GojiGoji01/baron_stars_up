@@ -37,8 +37,13 @@ class FragmentSessionValidatorService:
 
             page_state = await collect_fragment_page_state(page)
             buy_state = await self._collect_buy_button_state(page)
-            is_logged_in = bool(buy_state["buy_button_found"]) and not bool(page_state["fragment_connect_cta_visible"])
-            buy_button_available = bool(buy_state["buy_button_found"]) and not bool(buy_state["buy_button_disabled"])
+            has_wallet_session = bool(page_state.get("fragment_wallet_session_ready"))
+            is_logged_in = has_wallet_session or (
+                bool(buy_state["buy_button_found"]) and not bool(page_state["fragment_connect_cta_visible"])
+            )
+            buy_button_available = (
+                bool(buy_state["buy_button_found"]) and not bool(buy_state["buy_button_disabled"])
+            ) or has_wallet_session
 
             await page.screenshot(path=str(screenshot_path), full_page=True)
 

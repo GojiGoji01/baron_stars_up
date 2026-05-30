@@ -104,7 +104,7 @@ class Settings(BaseSettings):
         alias="FRAGMENT_BROWSER_SCREENSHOTS_DIR",
     )
     fragment_browser_prefer_userdata_profile: bool = Field(
-        default=False,
+        default=True,
         alias="FRAGMENT_BROWSER_PREFER_USERDATA_PROFILE",
     )
     fragment_star_base_usd: float = Field(default=0.015, alias="FRAGMENT_STAR_BASE_USD")
