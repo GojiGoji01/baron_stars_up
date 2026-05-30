@@ -67,6 +67,9 @@ class FakeOrdersService:
     async def get_order_by_id(self, order_id: int):
         return self.storage.get(order_id)
 
+    async def get_order_by_id_for_update(self, order_id: int):
+        return await self.get_order_by_id(order_id)
+
     async def update_status(self, order_id: int, status: str):
         order = self.storage[order_id]
         order.status = status
@@ -150,6 +153,16 @@ class FakeDeliveryAttemptsService:
         item = FakeAttempt(id=self.last_id, order_id=order_id, status="started")
         self.items.append(item)
         return item
+
+    async def start_attempt_or_get(self, *, order_id, attempt_key, provider):
+        for item in self.items:
+            if getattr(item, "attempt_key", None) == attempt_key:
+                return item, False
+        self.last_id += 1
+        item = FakeAttempt(id=self.last_id, order_id=order_id, status="started")
+        setattr(item, "attempt_key", attempt_key)
+        self.items.append(item)
+        return item, True
 
     async def mark_completed(self, *, attempt_id, external_transaction_id):
         for item in self.items:

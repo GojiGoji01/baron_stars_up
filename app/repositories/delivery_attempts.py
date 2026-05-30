@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.delivery_attempt import DeliveryAttempt
@@ -40,6 +41,39 @@ class DeliveryAttemptsRepository:
         self.session.add(attempt)
         await self.session.flush()
         return attempt
+
+    async def create_attempt_or_get(
+        self,
+        *,
+        order_id: int,
+        attempt_key: str,
+        provider: str,
+        status: str = DeliveryAttemptStatus.STARTED.value,
+        external_transaction_id: str | None = None,
+        error_message: str | None = None,
+    ) -> tuple[DeliveryAttempt, bool]:
+        existing_attempt = await self.get_by_attempt_key(attempt_key=attempt_key)
+        if existing_attempt is not None:
+            return existing_attempt, False
+
+        attempt = DeliveryAttempt(
+            order_id=order_id,
+            attempt_key=attempt_key,
+            provider=provider,
+            status=status,
+            external_transaction_id=external_transaction_id,
+            error_message=error_message,
+        )
+        try:
+            async with self.session.begin_nested():
+                self.session.add(attempt)
+                await self.session.flush()
+            return attempt, True
+        except IntegrityError:
+            existing_attempt = await self.get_by_attempt_key(attempt_key=attempt_key)
+            if existing_attempt is not None:
+                return existing_attempt, False
+            raise
 
     async def get_latest_for_order(self, *, order_id: int) -> DeliveryAttempt | None:
         result = await self.session.execute(

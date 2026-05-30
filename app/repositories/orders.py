@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.order import Order
@@ -88,6 +88,12 @@ class OrdersRepository:
     async def get_order_by_id(self, order_id: int) -> Order | None:
         return await self.session.get(Order, order_id)
 
+    async def get_order_by_id_for_update(self, order_id: int) -> Order | None:
+        result = await self.session.execute(
+            select(Order).where(Order.id == order_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
     async def update_order(self, order_id: int, **fields: Any) -> Order | None:
         order = await self.get_order_by_id(order_id)
         if order is None:
@@ -131,13 +137,18 @@ class OrdersRepository:
         return await self.update_status(order_id, OrderStatus.REFUNDED)
 
     async def increment_delivery_attempts(self, order_id: int) -> Order | None:
-        order = await self.get_order_by_id(order_id)
-        if order is None:
+        updated_row = await self.session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(delivery_attempts=Order.delivery_attempts + 1)
+            .returning(Order.id)
+        )
+        row = updated_row.first()
+        if row is None:
             return None
 
-        order.delivery_attempts += 1
         await self.session.flush()
-        return order
+        return await self.get_order_by_id(order_id)
 
     async def list_orders(
         self,

@@ -58,6 +58,9 @@ class _OrdersService:
     async def get_order_by_id(self, order_id: int):
         return self.storage.get(order_id)
 
+    async def get_order_by_id_for_update(self, order_id: int):
+        return await self.get_order_by_id(order_id)
+
     async def update_status(self, order_id: int, status: str):
         order = self.storage[order_id]
         order.status = status
@@ -126,7 +129,10 @@ class _DeliveryAttempts:
 
     async def start_attempt(self, *, order_id, attempt_key, provider):
         self.last_id += 1
-        return type("Attempt", (), {"id": self.last_id})
+        return type("Attempt", (), {"id": self.last_id, "attempt_key": attempt_key})
+
+    async def start_attempt_or_get(self, *, order_id, attempt_key, provider):
+        return await self.start_attempt(order_id=order_id, attempt_key=attempt_key, provider=provider), True
 
     async def mark_completed(self, *, attempt_id, external_transaction_id):
         return None

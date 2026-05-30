@@ -116,6 +116,9 @@ class OrdersService:
     async def get_order_by_id(self, order_id: int) -> DbOrder | None:
         return await self.orders.get_order_by_id(order_id)
 
+    async def get_order_by_id_for_update(self, order_id: int) -> DbOrder | None:
+        return await self.orders.get_order_by_id_for_update(order_id)
+
     async def get_order_by_order_id(self, order_id: str) -> DbOrder | None:
         return await self.orders.get_order_by_order_id(order_id)
 

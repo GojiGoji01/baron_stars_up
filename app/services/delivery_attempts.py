@@ -22,6 +22,20 @@ class DeliveryAttemptsService:
             status=DeliveryAttemptStatus.STARTED.value,
         )
 
+    async def start_attempt_or_get(
+        self,
+        *,
+        order_id: int,
+        attempt_key: str,
+        provider: str,
+    ) -> tuple[DeliveryAttempt, bool]:
+        return await self.repository.create_attempt_or_get(
+            order_id=order_id,
+            attempt_key=attempt_key,
+            provider=provider,
+            status=DeliveryAttemptStatus.STARTED.value,
+        )
+
     async def mark_completed(
         self,
         *,

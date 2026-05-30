@@ -203,7 +203,7 @@ class CheckoutService:
         return StarsCheckoutResult(order=updated_order, payment_url=invoice.payment_url)
 
     async def confirm_payment_and_deliver(self, *, order_id: int) -> PaymentDeliveryResult:
-        order = await self.orders_service.get_order_by_id(order_id)
+        order = await self.orders_service.get_order_by_id_for_update(order_id)
         if order is None:
             raise CheckoutError("Order not found")
         logger.info(
@@ -323,11 +323,24 @@ class CheckoutService:
 
         provider_name = "telegram_gifts" if order.order_type == "gift" else "fragment"
         attempt_key = f"{order.order_id or order.id}:{order.delivery_attempts}"
-        delivery_attempt = await self.delivery_attempts_service.start_attempt(
+        delivery_attempt, is_new_attempt = await self.delivery_attempts_service.start_attempt_or_get(
             order_id=order.id,
             attempt_key=attempt_key,
             provider=provider_name,
         )
+        if not is_new_attempt:
+            logger.warning(
+                "delivery_attempt_duplicate order_id=%s attempt_key=%s provider=%s",
+                order.id,
+                attempt_key,
+                provider_name,
+            )
+            return PaymentDeliveryResult(
+                order=order,
+                payment_status=payment_status,
+                delivery_status=order.delivery_status,
+                user_message=FRAGMENT_DELIVERY_PENDING_MESSAGE,
+            )
 
         if order.order_type == "gift":
             if not order.gift_id:
