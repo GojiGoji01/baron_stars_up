@@ -7,6 +7,7 @@ from typing import Any
 
 from app.services.browser import BrowserManagerError, get_browser_manager
 from app.services.fragment.browser_session import FragmentBrowserSessionService
+from app.services.fragment.browser_state import collect_fragment_page_state
 from app.services.fragment.browser_warmup import FragmentBrowserWarmupService
 from config import settings
 
@@ -33,38 +34,15 @@ class FragmentBrowserPreflightService:
                 timeout=settings.fragment_browser_timeout_ms,
             )
             await page.wait_for_timeout(1500)
-
-            title = await page.title()
-            local_storage_keys = await page.evaluate(
-                """
-                () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i))
-                """
-            )
-            session_storage_keys = await page.evaluate(
-                """
-                () => Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i))
-                """
-            )
-            connect_wallet_visible = await page.locator("text=Connect wallet").count() > 0
-            ton_connect_keys = [key for key in local_storage_keys if str(key).startswith("ton-connect")]
-            body_text = await page.locator("body").inner_text()
+            page_state = await collect_fragment_page_state(page)
             await page.screenshot(path=str(screenshot_path), full_page=True)
-
-            wallet_session_ready = bool(ton_connect_keys) and not connect_wallet_visible
 
             return {
                 "fragment_preflight_ok": True,
                 "fragment_session_sync": session_sync_info,
                 "fragment_warmup": warmup_info,
-                "fragment_url": page.url,
-                "fragment_title": title,
-                "fragment_connect_wallet_visible": connect_wallet_visible,
-                "fragment_local_storage_key_count": len(local_storage_keys),
-                "fragment_session_storage_key_count": len(session_storage_keys),
-                "fragment_ton_connect_key_count": len(ton_connect_keys),
-                "fragment_wallet_session_ready": wallet_session_ready,
-                "fragment_body_excerpt": body_text[:600],
                 "fragment_screenshot_path": str(screenshot_path),
+                **page_state,
             }
         except Exception as error:
             logger.exception("fragment_browser_preflight_failed")

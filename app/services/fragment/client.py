@@ -14,6 +14,7 @@ from app.services.fragment.base import (
     FragmentError,
 )
 from app.services.browser import get_browser_manager
+from app.services.fragment.buy_page_probe import FragmentBuyPageProbeService
 from app.services.fragment.browser_debug import FragmentBrowserDebugService
 from app.services.fragment.browser_preflight import FragmentBrowserPreflightService
 from config import settings
@@ -165,6 +166,9 @@ class FragmentAPIService:
     async def collect_browser_preflight_info(self) -> dict[str, Any]:
         return await FragmentBrowserPreflightService().collect_safe_preflight_info(sync_session=True)
 
+    async def probe_buy_page(self, *, username: str, amount: int | None = None) -> dict[str, Any]:
+        return await FragmentBuyPageProbeService().probe_safe(username=username, amount=amount)
+
     async def get_rates(self) -> dict[str, float]:
         if not self.client:
             raise FragmentAPIError("Fragment API client is not initialized")
@@ -212,12 +216,14 @@ class FragmentAPIService:
         if settings.playwright_enabled:
             preflight_info = await self.collect_browser_preflight_info()
             logger.info(
-                "fragment_buy_stars_preflight username=%s amount=%s api_mode=%s wallet_session_ready=%s warmup_ok=%s connect_wallet_visible=%s ton_connect_key_count=%s screenshot_path=%s error=%s",
+                "fragment_buy_stars_preflight username=%s amount=%s api_mode=%s wallet_session_ready=%s warmup_ok=%s connect_cta_visible=%s connect_ton_visible=%s connect_wallet_visible=%s ton_connect_key_count=%s screenshot_path=%s error=%s",
                 username,
                 stars_count,
                 self.api_mode,
                 preflight_info.get("fragment_wallet_session_ready"),
                 (preflight_info.get("fragment_warmup") or {}).get("fragment_warmup_ok"),
+                preflight_info.get("fragment_connect_cta_visible"),
+                preflight_info.get("fragment_connect_ton_visible"),
                 preflight_info.get("fragment_connect_wallet_visible"),
                 preflight_info.get("fragment_ton_connect_key_count"),
                 preflight_info.get("fragment_screenshot_path"),

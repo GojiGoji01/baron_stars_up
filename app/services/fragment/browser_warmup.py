@@ -5,6 +5,7 @@ from typing import Any
 
 from app.services.browser import BrowserManagerError, get_browser_manager
 from app.services.fragment.browser_session import FragmentBrowserSessionService
+from app.services.fragment.browser_state import collect_fragment_page_state
 from config import settings
 
 
@@ -27,28 +28,20 @@ class FragmentBrowserWarmupService:
                     timeout=settings.fragment_browser_timeout_ms,
                 )
                 await page.wait_for_timeout(1500)
-
-                local_storage_keys = await page.evaluate(
-                    """
-                    () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i))
-                    """
-                )
-                connect_wallet_visible = await page.locator("text=Connect wallet").count() > 0
-                ton_connect_key_count = len(
-                    [key for key in local_storage_keys if str(key).startswith("ton-connect")]
-                )
-                wallet_session_ready = ton_connect_key_count > 0 and not connect_wallet_visible
+                page_state = await collect_fragment_page_state(page)
 
                 attempt_info = {
                     "attempt": attempt_index,
-                    "fragment_url": page.url,
-                    "connect_wallet_visible": connect_wallet_visible,
-                    "ton_connect_key_count": ton_connect_key_count,
-                    "wallet_session_ready": wallet_session_ready,
+                    "fragment_url": page_state["fragment_url"],
+                    "connect_wallet_visible": page_state["fragment_connect_wallet_visible"],
+                    "connect_ton_visible": page_state["fragment_connect_ton_visible"],
+                    "connect_cta_visible": page_state["fragment_connect_cta_visible"],
+                    "ton_connect_key_count": page_state["fragment_ton_connect_key_count"],
+                    "wallet_session_ready": page_state["fragment_wallet_session_ready"],
                 }
                 attempts.append(attempt_info)
 
-                if wallet_session_ready:
+                if page_state["fragment_wallet_session_ready"]:
                     return {
                         "fragment_warmup_ok": True,
                         "fragment_warmup_attempts": attempts,
@@ -56,7 +49,7 @@ class FragmentBrowserWarmupService:
                         "fragment_wallet_session_ready": True,
                     }
 
-                if ton_connect_key_count > 0:
+                if page_state["fragment_ton_connect_key_count"] > 0:
                     await page.reload(
                         wait_until="domcontentloaded",
                         timeout=settings.fragment_browser_timeout_ms,

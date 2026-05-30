@@ -1,4 +1,5 @@
 from app.services.fragment.base import FragmentDeliveryResult, FragmentDeliveryStatus
+from app.services.fragment.buy_page_probe import FragmentBuyPageProbeService
 from app.services.fragment.browser_debug import FragmentBrowserDebugService
 from app.services.fragment.browser_preflight import FragmentBrowserPreflightService
 from app.services.fragment.browser_session import FragmentBrowserSessionService
@@ -12,6 +13,7 @@ __all__ = (
     "FragmentBrowserPreflightService",
     "FragmentBrowserSessionService",
     "FragmentBrowserWarmupService",
+    "FragmentBuyPageProbeService",
     "FragmentClient",
     "FragmentDeliveryResult",
     "FragmentDeliveryStatus",

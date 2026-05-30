@@ -92,6 +92,23 @@ preflight = await service.collect_browser_preflight_info()
 print(preflight)
 ```
 
+Fragment buy page probe for a specific recipient:
+
+```python
+from app.services.fragment.client import FragmentAPIService
+from config import settings
+
+service = FragmentAPIService(
+    wallet_mnemonic=settings.fragment_wallet_mnemonic,
+    api_url=settings.fragment_effective_api_url,
+    api_mode=settings.fragment_api_mode,
+    cookies_base64=settings.fragment_cookies_base64,
+    local_storage_base64=settings.fragment_local_storage_base64,
+)
+probe = await service.probe_buy_page(username="@durov", amount=50)
+print(probe)
+```
+
 The preflight now first syncs `FRAGMENT_COOKIES_BASE64` and
 `FRAGMENT_LOCAL_STORAGE_BASE64` into the persistent Playwright session and only
 then checks Fragment page state.
@@ -104,7 +121,7 @@ This collects:
 
 - current Fragment URL
 - page title
-- `Connect wallet` visibility
+- `Connect TON` / `Connect wallet` visibility
 - localStorage keys
 - sessionStorage keys
 - body text excerpt
@@ -117,6 +134,14 @@ The preflight additionally reports:
 - `fragment_session_sync`
 - `fragment_warmup`
 - screenshot path before the external SDK buy call
+
+The buy page probe additionally reports:
+
+- candidate URLs that were tried
+- whether a `Buy` button was found
+- `Buy` button text
+- `disabled`
+- `aria-disabled`
 
 Inside Fragment debug/config flow:
 
