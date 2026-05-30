@@ -1,6 +1,6 @@
 """add fragment browser sessions
 
-Revision ID: 0005_add_fragment_browser_sessions
+Revision ID: 0005_fragment_sessions
 Revises: 0004_add_username_to_users
 Create Date: 2026-05-30 13:35:00
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "0005_add_fragment_browser_sessions"
+revision: str = "0005_fragment_sessions"
 down_revision: str | None = "0004_add_username_to_users"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
